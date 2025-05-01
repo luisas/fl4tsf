@@ -37,8 +37,8 @@ def on_fit_config(server_round: int):
     """Construct `config` that clients receive when running `fit()`"""
     lr = 0.1
     # Enable a simple form of learning rate decay
-    if server_round > 10:
-        lr /= 2
+    #if server_round > 10:
+    #    lr /= 2
     return {"lr": lr}
 
 
@@ -73,7 +73,7 @@ def server_fn(context: Context):
 
     testloader = DataLoader(
         global_test_set.with_transform(apply_eval_transforms),
-        batch_size=32,
+        batch_size=32
     )
 
     # Define strategy

@@ -52,13 +52,15 @@ class Net(nn.Module):
         return self.fc2(x)
 
 
-def train(net, trainloader, epochs, lr, device):
+def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=0.9)
     net.train()
     running_loss = 0.0
+    if loss_per_epoch:
+        epoch_loss = []
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["image"]
@@ -68,12 +70,18 @@ def train(net, trainloader, epochs, lr, device):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-
+        if loss_per_epoch:
+            epoch_loss.append(loss.item())            
+    
     avg_trainloss = running_loss / len(trainloader)
+
+    if loss_per_epoch:
+        return epoch_loss
+
     return avg_trainloss
 
 
-def test(net, testloader, device):
+def test(net, testloader, device):    
     """Validate the model on the test set."""
     net.to(device)
     criterion = torch.nn.CrossEntropyLoss()
@@ -130,6 +138,8 @@ def load_data(partition_id: int, num_partitions: int):
             dataset="zalando-datasets/fashion_mnist",
             partitioners={"train": partitioner},
         )
+    # Print here how long the dataset is 
+    total = sum(len(fds.load_partition(i)) for i in range(num_partitions))
     partition = fds.load_partition(partition_id)
     # Divide data on each node: 80% train, 20% test
     partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
@@ -147,10 +157,10 @@ def create_run_dir(config: UserConfig) -> Path:
     """Create a directory where to save results from this run."""
     # Create output directory given current timestamp
     current_time = datetime.now()
-    run_dir = current_time.strftime("%Y-%m-%d/%H-%M-%S")
+    run_dir = "federated_outputs"
     # Save path is based on the current directory
     save_path = Path.cwd() / f"outputs/{run_dir}"
-    save_path.mkdir(parents=True, exist_ok=False)
+    save_path.mkdir(parents=True, exist_ok=True)
 
     # Save run config as json
     with open(f"{save_path}/run_config.json", "w", encoding="utf-8") as fp:
