@@ -15,6 +15,7 @@ from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import DirichletPartitioner
 from torch.utils.data import DataLoader
 from flwr.common.typing import UserConfig
+from types import SimpleNamespace
 
 
 from lib.rnn_baselines import *
@@ -23,10 +24,12 @@ from lib.create_latent_ode_model import create_LatentODE_model
 from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
+from lib.parse_datasets import parse_datasets
 
 
 
-def Net(device):
+def Net():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     obsrv_std = 0.01
     poisson = False
     units = 100
@@ -34,13 +37,14 @@ def Net(device):
     gen_layers = 1
     rec_dims = 20
     rec_layers = 1
-    z0_encoder = "classic_rnn"
+    z0_encoder = "rnn"
+    gru_units = 3
     train_classif_w_reconstr = False
     classif = False
     linear_classif = False
     classif_per_tp = False
     n_labels = 1
-    input_dim = 28 * 28
+    input_dim = 1
     obsrv_std = torch.Tensor([obsrv_std]).to(device)
     z0_prior = Normal(torch.Tensor([0.0]).to(device), torch.Tensor([1.]).to(device))
     model = create_LatentODE_model(latents,
@@ -49,6 +53,7 @@ def Net(device):
                                     gen_layers,
                                     rec_dims,
                                     rec_layers,
+                                    gru_units,
                                     z0_encoder,
                                     classif,
                                     linear_classif,
@@ -80,7 +85,6 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     for _ in range(epochs):
         for batch in trainloader:
             optimizer.zero_grad()
-            #utils.update_learning_rate(optimizer, decay_rate = 0.999, lowest = lr / 10)
             train_res = net.compute_all_losses(batch.to(device), n_traj_samples = 3, kl_coef = kl_coef)
             train_res["loss"].backward()
             optimizer.step()
@@ -91,22 +95,21 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     avg_trainloss = running_loss / len(trainloader)
     return avg_trainloss
 
-# TODO implement 
-# def test(net, testloader, device):    
-#     """Validate the model on the test set."""
-#     net.to(device)
-#     criterion = torch.nn.CrossEntropyLoss()
-#     correct, loss = 0, 0.0
-#     with torch.no_grad():
-#         for batch in testloader:
-#             images = batch["image"].to(device)
-#             labels = batch["label"].to(device)
-#             outputs = net(images)
-#             loss += criterion(outputs, labels).item()
-#             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-#     accuracy = correct / len(testloader.dataset)
-#     loss = loss / len(testloader)
-#     return loss, accuracy
+def test(net, testloader, device):    
+    """Validate the model on the test set."""
+    net.to(device)
+    # print how big the testloader is 
+    print("Testingggggggggg")
+    print("Testloader size: ", len(list(testloader)))
+    correct, loss = 0, 0.0
+    with torch.no_grad():
+        for batch in testloader:
+            # Fix kl_coef to 0 for testing
+            test_res = net.compute_all_losses(batch, n_traj_samples = 1, kl_coef = 0)
+            loss += test_res["loss"].item()
+    accuracy = 0 # TODO implement accuracy
+    loss = loss / len(testloader)
+    return loss, accuracy
 
 
 def get_weights(net):
@@ -121,33 +124,58 @@ def set_weights(net, parameters):
 
 fds = None  # Cache FederatedDataset
 
-# TODO: use time series data instead of MNIST 
-def load_data(partition_id: int, num_partitions: int):
-    """Load partition FashionMNIST data."""
-    # Only initialize `FederatedDataset` once
-    global fds
-    if fds is None:
-        partitioner = DirichletPartitioner(
-            num_partitions=num_partitions,
-            partition_by="label",
-            alpha=1.0,
-            seed=42,
-        )
-        fds = FederatedDataset(
-            dataset="zalando-datasets/fashion_mnist",
-            partitioners={"train": partitioner},
-        )
-    # Print here how long the dataset is 
-    total = sum(len(fds.load_partition(i)) for i in range(num_partitions))
-    partition = fds.load_partition(partition_id)
-    # Divide data on each node: 80% train, 20% test
-    partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
 
-    train_partition = partition_train_test["train"]
-    test_partition = partition_train_test["test"]
-    trainloader = DataLoader(train_partition, batch_size=32, shuffle=True)
-    testloader = DataLoader(test_partition, batch_size=32)
+def create_periodic_dataset():
+    """Create a periodic dataset."""
+    args = SimpleNamespace()
+    args.dataset = "periodic"
+    args.extrap = False
+    args.timepoints = 5
+    args.max_t = 5.
+    args.n = 2
+    args.noise_weight = 0.1
+    args.batch_size = 32
+    args.quantization = 0.1
+    args.classif = False
+    args.sample_tp = 0.5
+    args.cut_tp = None
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    data_obj = parse_datasets(args, device)
+
+    # Extract data loader 
+    trainloader = data_obj["train_dataloader"]
+    testloader = data_obj["test_dataloader"]
+
     return trainloader, testloader
+
+def load_data(partition_id: int, num_partitions: int):
+    """Load partition of periodic dataset for federated learning."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Create the full periodic dataset
+    trainloader_full, testloader_full = create_periodic_dataset()
+
+    # Get full dataset from dataloaders
+    train_dataset = trainloader_full.dataset
+    test_dataset = testloader_full.dataset
+
+    # Determine partition size
+    train_len = len(train_dataset)
+    part_len = train_len // num_partitions
+    start = partition_id * part_len
+    end = (partition_id + 1) * part_len if partition_id < num_partitions - 1 else train_len
+
+    # Partition train/test datasets
+    train_subset = torch.utils.data.Subset(train_dataset, range(start, end))
+    test_subset = torch.utils.data.Subset(test_dataset, range(start, end))  # or use global test set
+
+    # Create DataLoaders
+    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
+    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+
+    return trainloader, testloader
+
 
 
 def create_run_dir(config: UserConfig) -> Path:

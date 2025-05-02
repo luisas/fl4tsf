@@ -223,8 +223,6 @@ class VAE_Baseline(nn.Module):
 		# Compute likelihood of the data under the predictions
 		truth_repeated = truth.repeat(pred_y.size(0), 1, 1, 1)
 
-		print("maaaaaaaaaaask*****************************************")
-		print(mask)
 		if mask is not None:
 			mask = mask.repeat(pred_y.size(0), 1, 1, 1)
 		log_density_data = masked_gaussian_log_density(pred_y, truth_repeated, 
@@ -266,16 +264,12 @@ class VAE_Baseline(nn.Module):
 		fp_std = fp_std.abs()
 		fp_distr = Normal(fp_mu, fp_std)
 
-		print("fp_distr shape: ", fp_distr)
-
 		assert(torch.sum(fp_std < 0) == 0.)
 
 		kldiv_z0 = kl_divergence(fp_distr, self.z0_prior)
 
 
 		if torch.isnan(kldiv_z0).any():
-			print(fp_mu)
-			print(fp_std)
 			raise Exception("kldiv_z0 is Nan!")
 
 		# Mean over number of latent dimensions
@@ -289,7 +283,6 @@ class VAE_Baseline(nn.Module):
 			batch_dict["data_to_predict"], pred_y,
 			mask = batch_dict["mask_predicted_data"])
 
-		print("rec_likelihood shape: ", rec_likelihood.size())
 
 		mse = self.get_mse(
 			batch_dict["data_to_predict"], pred_y,

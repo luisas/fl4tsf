@@ -148,7 +148,6 @@ class Encoder_z0_RNN(nn.Module):
 			delta_t = delta_t.unsqueeze(1).repeat((1,n_traj)).unsqueeze(-1)
 			data = torch.cat((delta_t, data),-1)
 
-		print(self.input_dim)
 		outputs, _ = self.gru_rnn(data)
 
 		# LSTM output shape: (seq_len, batch, num_directions * hidden_size)
@@ -158,9 +157,6 @@ class Encoder_z0_RNN(nn.Module):
 
 		mean, std = utils.split_last_dim(self.hiddens_to_z0(last_output))
 		std = std.abs()
-		print( "----------------------------")
-		print("mean: {}".format(mean.shape))
-		print(mean.unsqueeze(0).shape)
 		assert(not torch.isnan(mean).any())
 		assert(not torch.isnan(std).any())
 
@@ -335,9 +331,6 @@ class Decoder(nn.Module):
 		self.decoder = decoder
 
 	def forward(self, data):
-		print("Decoding data")
-		print(data.size())
-		print(self.decoder(data).size())
 		return self.decoder(data)
 
 

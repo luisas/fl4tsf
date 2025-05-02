@@ -20,7 +20,7 @@ from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 
 #####################################################################################################
 
-def create_LatentODE_model(latents, poisson, units, gen_layers, rec_dims, rec_layers, z0_encoder, classif, linear_classif, train_classif_w_reconstr, input_dim, z0_prior, obsrv_std, device, 
+def create_LatentODE_model(latents, poisson, units, gen_layers, rec_dims, rec_layers, gru_units, z0_encoder, classif, linear_classif, train_classif_w_reconstr, input_dim, z0_prior, obsrv_std, device, 
 	classif_per_tp = False, n_labels = 1):
 
 	dim = latents
@@ -60,7 +60,7 @@ def create_LatentODE_model(latents, poisson, units, gen_layers, rec_dims, rec_la
 
 	if z0_encoder == "odernn":
 		ode_func_net = utils.create_net(n_rec_dims, n_rec_dims, 
-			n_layers = args.rec_layers, n_units =units, nonlinear = nn.Tanh)
+			n_layers = rec_layers, n_units =units, nonlinear = nn.Tanh)
 
 		rec_ode_func = ODEFunc(
 			input_dim = enc_input_dim, 
@@ -72,7 +72,7 @@ def create_LatentODE_model(latents, poisson, units, gen_layers, rec_dims, rec_la
 			odeint_rtol = 1e-3, odeint_atol = 1e-4, device = device)
 		
 		encoder_z0 = Encoder_z0_ODE_RNN(n_rec_dims, enc_input_dim, z0_diffeq_solver, 
-			z0_dim = z0_dim, n_gru_units = args.gru_units, device = device).to(device)
+			z0_dim = z0_dim, n_gru_units = gru_units, device = device).to(device)
 
 	elif z0_encoder == "rnn":
 		encoder_z0 = Encoder_z0_RNN(z0_dim, enc_input_dim,

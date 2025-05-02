@@ -4,7 +4,6 @@ import torch
 from pytorch_example.strategy import CustomFedAvg
 from pytorch_example.task import (
     Net,
-    apply_eval_transforms,
     get_weights,
     set_weights,
     test,
@@ -14,6 +13,8 @@ from torch.utils.data import DataLoader
 from datasets import load_dataset
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
+from types import SimpleNamespace
+from lib.parse_datasets import parse_datasets
 
 
 def gen_evaluate_fn(
@@ -21,6 +22,7 @@ def gen_evaluate_fn(
     device: torch.device,
 ):
     """Generate the function for centralized evaluation."""
+
 
     def evaluate(server_round, parameters_ndarrays, config):
         """Evaluate global model on centralized test set."""
@@ -63,18 +65,43 @@ def server_fn(context: Context):
     ndarrays = get_weights(Net())
     parameters = ndarrays_to_parameters(ndarrays)
 
+
     # Prepare dataset for central evaluation
 
     # This is the exact same dataset as the one donwloaded by the clients via
     # FlowerDatasets. However, we don't use FlowerDatasets for the server since
     # partitioning is not needed.
     # We make use of the "test" split only
-    global_test_set = load_dataset("zalando-datasets/fashion_mnist")["test"]
 
-    testloader = DataLoader(
-        global_test_set.with_transform(apply_eval_transforms),
-        batch_size=32
-    )
+    def create_periodic_dataset():
+        """Create a periodic dataset."""
+        args = SimpleNamespace()
+        args.dataset = "periodic"
+        args.extrap = False
+        args.timepoints = 5
+        args.max_t = 5.
+        args.n = 64
+        args.noise_weight = 0.1
+        args.batch_size = 32
+        args.quantization = 0.1
+        args.classif = False
+        args.sample_tp = 0.5
+        args.cut_tp = None
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        data_obj = parse_datasets(args, device)
+        # Extract data loader 
+        # here does not matter if we use train or test loader since it is synthetic and newly generated
+        loader = data_obj["train_dataloader"]
+
+        return loader
+
+
+
+    testloader = create_periodic_dataset()
+
+        
+
 
     # Define strategy
     strategy = CustomFedAvg(
@@ -87,6 +114,7 @@ def server_fn(context: Context):
         evaluate_fn=gen_evaluate_fn(testloader, device=server_device),
         evaluate_metrics_aggregation_fn=weighted_average,
     )
+
     config = ServerConfig(num_rounds=num_rounds)
 
     return ServerAppComponents(strategy=strategy, config=config)

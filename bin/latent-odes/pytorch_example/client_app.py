@@ -43,6 +43,10 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         self._load_layer_weights_from_state()
 
+        # Print the dimension of the train laoder 
+        print("############################################################")
+        print(f"Train loader size: {len(self.trainloader.dataset)}")
+
         train_loss = train(
             self.net,
             self.trainloader,

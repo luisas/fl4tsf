@@ -84,9 +84,6 @@ class LatentODE(VAE_Baseline):
 		assert(not torch.isnan(first_point_enc_aug).any())
 
 		# Shape of sol_y [n_traj_samples, n_samples, n_timepoints, n_latents]
-		print("______________________________")
-		print(time_steps_to_predict.size())
-		print(first_point_enc_aug.size())
 		sol_y = self.diffeq_solver(first_point_enc_aug, time_steps_to_predict)
 
 		if self.use_poisson_proc:
