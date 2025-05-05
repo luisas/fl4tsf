@@ -43,10 +43,6 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         self._load_layer_weights_from_state()
 
-        # Print the dimension of the train laoder 
-        print("############################################################")
-        print(f"Train loader size: {len(self.trainloader.dataset)}")
-
         train_loss = train(
             self.net,
             self.trainloader,
@@ -58,15 +54,19 @@ class FlowerClient(NumPyClient):
         self._save_layer_weights_to_state()
 
         # Return locally-trained model and metrics
+        # return (
+        #     get_weights(self.net),
+        #     len(self.trainloader.dataset),
+        #     {"train_loss": train_loss},
+        # ) #TODO
         return (
             get_weights(self.net),
-            len(self.trainloader.dataset),
+            1,
             {"train_loss": train_loss},
         )
-
     def _save_layer_weights_to_state(self):
         """Save last layer weights to state."""
-        arr_record = ArrayRecord(self.net.fc2.state_dict())
+        arr_record = ArrayRecord(self.net.decoder.state_dict()) #TODO
 
         # Add to RecordDict (replace if already exists)
         self.client_state[self.local_layer_name] = arr_record
@@ -79,7 +79,7 @@ class FlowerClient(NumPyClient):
         state_dict = self.client_state[self.local_layer_name].to_torch_state_dict()
 
         # apply previously saved classification head by this client
-        self.net.fc2.load_state_dict(state_dict, strict=True)
+        self.net.decoder.load_state_dict(state_dict, strict=True) #TODO
 
     def evaluate(self, parameters, config):
         """Evaluate the global model on the local validation set.
@@ -92,7 +92,8 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         self._load_layer_weights_from_state()
         loss, accuracy = test(self.net, self.valloader, self.device)
-        return loss, len(self.valloader.dataset), {"accuracy": accuracy}
+        #return loss, len(self.valloader.dataset), {"accuracy": accuracy} # TODO
+        return loss, 1, {"accuracy": accuracy}
 
 
 def client_fn(context: Context):

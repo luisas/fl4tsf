@@ -101,6 +101,10 @@ class Baseline(nn.Module):
 	def compute_all_losses(self, batch_dict,
 		n_tp_to_sample = None, n_traj_samples = 1, kl_coef = 1.):
 
+
+		# Check what is batch dict as a type
+		print("------------------------------------------------------------")
+		print("batch_dict type: ", type(batch_dict))
 		# Condition on subsampled points
 		# Make predictions for all the points
 		pred_x, info = self.get_reconstruction(batch_dict["tp_to_predict"], 

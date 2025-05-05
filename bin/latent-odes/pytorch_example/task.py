@@ -72,43 +72,52 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     net.to(device)  # move model to GPU if available
     
     optimizer = optim.Adamax(net.parameters(), lr=lr)
-    num_batches = trainloader.__len__()
 
-    wait_until_kl_inc = 10
-    if epochs // num_batches < wait_until_kl_inc:
-        kl_coef = 0.
-    else:
-        kl_coef = (1-0.99** (epochs // num_batches - wait_until_kl_inc))
+    print("################# training the model #################")
 
+    #num_batches = trainloader.__len__()
+
+    #print("Number of batches: ", num_batches)
+
+    # wait_until_kl_inc = 10
+    # if epochs // num_batches < wait_until_kl_inc:
+    #     kl_coef = 0.
+    # else:
+    #     kl_coef = (1-0.99** (epochs // num_batches - wait_until_kl_inc))
+    kl_coef = 0.1
+
+    running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
     for _ in range(epochs):
-        for batch in trainloader:
-            optimizer.zero_grad()
-            train_res = net.compute_all_losses(batch.to(device), n_traj_samples = 3, kl_coef = kl_coef)
-            train_res["loss"].backward()
-            optimizer.step()
-            loss = train_res["loss"].item()
-            running_loss += loss
+        #for batch in trainloader:
+        # print the first element of the batch
+        optimizer.zero_grad()
+        batch_dict = utils.get_next_batch(trainloader)
+        train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
+        train_res["loss"].backward()
+        optimizer.step()
+        loss = train_res["loss"].item()
+        running_loss += loss
         if loss_per_epoch:
             epoch_loss.append(loss.item())
-    avg_trainloss = running_loss / len(trainloader)
+    avg_trainloss = 10 #todo
     return avg_trainloss
 
 def test(net, testloader, device):    
     """Validate the model on the test set."""
     net.to(device)
-    # print how big the testloader is 
-    print("Testingggggggggg")
-    print("Testloader size: ", len(list(testloader)))
-    correct, loss = 0, 0.0
-    with torch.no_grad():
-        for batch in testloader:
-            # Fix kl_coef to 0 for testing
-            test_res = net.compute_all_losses(batch, n_traj_samples = 1, kl_coef = 0)
-            loss += test_res["loss"].item()
-    accuracy = 0 # TODO implement accuracy
-    loss = loss / len(testloader)
+    # # print how big the testloader is 
+    # correct, loss = 0, 0.0
+    # with torch.no_grad():
+    #     for batch in testloader:
+    #         # Fix kl_coef to 0 for testing
+    #         test_res = net.compute_all_losses(batch, n_traj_samples = 1, kl_coef = 0)
+    #         loss += test_res["loss"].item()
+    # accuracy = 0 # TODO implement accuracy
+    # loss = loss / len(testloader)
+    loss = 0.0
+    accuracy = 0.0
     return loss, accuracy
 
 
@@ -132,7 +141,7 @@ def create_periodic_dataset():
     args.extrap = False
     args.timepoints = 5
     args.max_t = 5.
-    args.n = 2
+    args.n = 100
     args.noise_weight = 0.1
     args.batch_size = 32
     args.quantization = 0.1
@@ -152,29 +161,35 @@ def create_periodic_dataset():
 def load_data(partition_id: int, num_partitions: int):
     """Load partition of periodic dataset for federated learning."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    print("### calling load_data ###")
     # Create the full periodic dataset
     trainloader_full, testloader_full = create_periodic_dataset()
 
-    # Get full dataset from dataloaders
-    train_dataset = trainloader_full.dataset
-    test_dataset = testloader_full.dataset
+    # print("### calling create_periodic_dataset ##") 
 
-    # Determine partition size
-    train_len = len(train_dataset)
-    part_len = train_len // num_partitions
-    start = partition_id * part_len
-    end = (partition_id + 1) * part_len if partition_id < num_partitions - 1 else train_len
 
-    # Partition train/test datasets
-    train_subset = torch.utils.data.Subset(train_dataset, range(start, end))
-    test_subset = torch.utils.data.Subset(test_dataset, range(start, end))  # or use global test set
+    # # Get full dataset from dataloaders
+    # train_dataset = trainloader_full
+    # test_dataset = testloader_full
 
-    # Create DataLoaders
-    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
-    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+    # print("### calling load_data ###")
 
-    return trainloader, testloader
+    # # Determine partition size
+    # train_len = len(train_dataset)
+    # part_len = train_len // num_partitions
+    # start = partition_id * part_len
+    # end = (partition_id + 1) * part_len if partition_id < num_partitions - 1 else train_len
+    # # Partition train/test datasets
+    # train_subset = torch.utils.data.Subset(train_dataset, range(start, end))
+    # test_subset = torch.utils.data.Subset(test_dataset, range(start, end))  # or use global test set
+
+    # if len(train_subset) == 0:
+    #     raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
+    # # Create DataLoaders
+    # trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
+    # testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+
+    return utils.inf_generator(trainloader_full), utils.inf_generator(testloader_full)
 
 
 

@@ -96,12 +96,11 @@ def server_fn(context: Context):
 
         return loader
 
-
+    print("### calling create_periodic_dataset ###")
 
     testloader = create_periodic_dataset()
 
-        
-
+    print("### calling create_periodic_dataset FINISHED ###")
 
     # Define strategy
     strategy = CustomFedAvg(
@@ -115,8 +114,10 @@ def server_fn(context: Context):
         evaluate_metrics_aggregation_fn=weighted_average,
     )
 
-    config = ServerConfig(num_rounds=num_rounds)
+    print("### calling startegy ###")
 
+    config = ServerConfig(num_rounds=num_rounds)
+    print("### calling server start ###")
     return ServerAppComponents(strategy=strategy, config=config)
 
 

@@ -243,6 +243,14 @@ def parse_datasets(args, device):
 				"input_dim": input_dim,
 				"n_train_batches": len(train_dataloader),
 				"n_test_batches": len(test_dataloader)}
+	
+	# data_objects = {#"dataset_obj": dataset_obj, 
+	# 			"train_dataloader": utils.inf_generator(train_dataloader), 
+	# 			"test_dataloader": utils.inf_generator(test_dataloader),
+	# 			"input_dim": input_dim,
+	# 			"n_train_batches": len(train_dataloader),
+	# 			"n_test_batches": len(test_dataloader)}
+
 	print("Number of training batches: ", len(train_dataloader))
 	print("Number of test batches: ", len(test_dataloader))
 	return data_objects
