@@ -211,11 +211,6 @@ def parse_datasets(args, device):
 	if dataset_obj is None:
 		raise Exception("Unknown dataset: {}".format(dataset_name))
 
-	print("--------------------")
-	print("Dataset: ", dataset_name)
-	print("Number of samples: ", args.n)
-	print("Number of time points: ", args.timepoints)
-	print("Max time: ", args.max_t)
 	dataset = dataset_obj.sample_traj(time_steps_extrap, n_samples = args.n, 
 		noise_weight = args.noise_weight)
 
@@ -224,35 +219,25 @@ def parse_datasets(args, device):
 	dataset = dataset.to(device)
 	time_steps_extrap = time_steps_extrap.to(device)
 
-	train_y, test_y = utils.split_train_test(dataset, train_fraq = 0.8)
+	# train_y, test_y = utils.split_train_test(dataset, train_fraq = 0.8)
 
-	n_samples = len(dataset)
-	input_dim = dataset.size(-1)
+	# n_samples = len(dataset)
+	# input_dim = dataset.size(-1)
 
-	batch_size = min(args.batch_size, args.n)
-	train_dataloader = DataLoader(train_y, batch_size = batch_size, shuffle=False,
-		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "train"))
-	test_dataloader = DataLoader(test_y, batch_size = args.n, shuffle=False,
-		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
+	# batch_size = min(args.batch_size, args.n)
+	# train_dataloader = DataLoader(train_y, batch_size = batch_size, shuffle=False,
+	# 	collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "train"))
+	# test_dataloader = DataLoader(test_y, batch_size = args.n, shuffle=False,
+	# 	collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
 
 
-	# TODO consider adding in_generator to test_dataloader
-	data_objects = {#"dataset_obj": dataset_obj, 
-				"train_dataloader": train_dataloader, 
-				"test_dataloader": test_dataloader,
-				"input_dim": input_dim,
-				"n_train_batches": len(train_dataloader),
-				"n_test_batches": len(test_dataloader)}
-	
 	# data_objects = {#"dataset_obj": dataset_obj, 
-	# 			"train_dataloader": utils.inf_generator(train_dataloader), 
-	# 			"test_dataloader": utils.inf_generator(test_dataloader),
+	# 			"train_dataloader": train_dataloader, 
+	# 			"test_dataloader": test_dataloader,
 	# 			"input_dim": input_dim,
 	# 			"n_train_batches": len(train_dataloader),
 	# 			"n_test_batches": len(test_dataloader)}
 
-	print("Number of training batches: ", len(train_dataloader))
-	print("Number of test batches: ", len(test_dataloader))
-	return data_objects
+	return dataset, time_steps_extrap, basic_collate_fn
 
 

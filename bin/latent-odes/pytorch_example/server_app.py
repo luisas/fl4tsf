@@ -89,18 +89,13 @@ def server_fn(context: Context):
         args.cut_tp = None
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        data_obj = parse_datasets(args, device)
+        train_loader, *_ = parse_datasets(args, device)
         # Extract data loader 
         # here does not matter if we use train or test loader since it is synthetic and newly generated
-        loader = data_obj["train_dataloader"]
 
-        return loader
-
-    print("### calling create_periodic_dataset ###")
+        return train_loader
 
     testloader = create_periodic_dataset()
-
-    print("### calling create_periodic_dataset FINISHED ###")
 
     # Define strategy
     strategy = CustomFedAvg(
@@ -114,10 +109,7 @@ def server_fn(context: Context):
         evaluate_metrics_aggregation_fn=weighted_average,
     )
 
-    print("### calling startegy ###")
-
     config = ServerConfig(num_rounds=num_rounds)
-    print("### calling server start ###")
     return ServerAppComponents(strategy=strategy, config=config)
 
 

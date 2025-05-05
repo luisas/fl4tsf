@@ -73,8 +73,6 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     
     optimizer = optim.Adamax(net.parameters(), lr=lr)
 
-    print("################# training the model #################")
-
     #num_batches = trainloader.__len__()
 
     #print("Number of batches: ", num_batches)
@@ -89,8 +87,13 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
-    for _ in range(epochs):
-        #for batch in trainloader:
+
+    n_batches = len(trainloader)
+    print("Number of batches: ", n_batches)
+    trainloader = utils.inf_generator(trainloader)
+    
+    for _ in range(epochs): # TODO 
+        # for batch in trainloader:
         # print the first element of the batch
         optimizer.zero_grad()
         batch_dict = utils.get_next_batch(trainloader)
@@ -131,9 +134,6 @@ def set_weights(net, parameters):
     net.load_state_dict(state_dict, strict=True)
 
 
-fds = None  # Cache FederatedDataset
-
-
 def create_periodic_dataset():
     """Create a periodic dataset."""
     args = SimpleNamespace()
@@ -150,46 +150,43 @@ def create_periodic_dataset():
     args.cut_tp = None
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    data_obj = parse_datasets(args, device)
+    dataset, timestamps, basic_collate_fn = parse_datasets(args, device)
 
-    # Extract data loader 
-    trainloader = data_obj["train_dataloader"]
-    testloader = data_obj["test_dataloader"]
+    return  dataset, timestamps, basic_collate_fn
 
-    return trainloader, testloader
+dataset = None # Cache dataset
 
 def load_data(partition_id: int, num_partitions: int):
     """Load partition of periodic dataset for federated learning."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("### calling load_data ###")
     # Create the full periodic dataset
-    trainloader_full, testloader_full = create_periodic_dataset()
+    batch_size = 32 # TODO 
+    n = 100 # TODO 
 
-    # print("### calling create_periodic_dataset ##") 
+    # 0. Create the dataset (if not already created)  
+    global dataset
+    global time_steps_extrap
+    global basic_collate_fn
+    if dataset is None:
+        dataset, time_steps_extrap, basic_collate_fn = create_periodic_dataset()
 
+    # 1. Extract the partition
+    partition_len = len(dataset) // num_partitions
+    start = partition_id * partition_len
+    end = (partition_id + 1) * partition_len if partition_id < num_partitions - 1 else len(dataset)
+    partition_dataset = dataset[start:end, :, :]
+    if len(partition_dataset) == 0:
+        raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
 
-    # # Get full dataset from dataloaders
-    # train_dataset = trainloader_full
-    # test_dataset = testloader_full
+    # 2. Split into train and test
+    train_y, test_y = utils.split_train_test(partition_dataset, train_fraq = 0.8)
 
-    # print("### calling load_data ###")
+    train_dataloader = DataLoader(train_y, batch_size = batch_size, shuffle=False,
+		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "train"))
+    test_dataloader = DataLoader(test_y, batch_size = n, shuffle=False,
+		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
 
-    # # Determine partition size
-    # train_len = len(train_dataset)
-    # part_len = train_len // num_partitions
-    # start = partition_id * part_len
-    # end = (partition_id + 1) * part_len if partition_id < num_partitions - 1 else train_len
-    # # Partition train/test datasets
-    # train_subset = torch.utils.data.Subset(train_dataset, range(start, end))
-    # test_subset = torch.utils.data.Subset(test_dataset, range(start, end))  # or use global test set
-
-    # if len(train_subset) == 0:
-    #     raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
-    # # Create DataLoaders
-    # trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
-    # testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
-
-    return utils.inf_generator(trainloader_full), utils.inf_generator(testloader_full)
+    return train_dataloader, test_dataloader
 
 
 
