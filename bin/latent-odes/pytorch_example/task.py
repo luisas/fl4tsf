@@ -73,10 +73,6 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     
     optimizer = optim.Adamax(net.parameters(), lr=lr)
 
-    #num_batches = trainloader.__len__()
-
-    #print("Number of batches: ", num_batches)
-
     # wait_until_kl_inc = 10
     # if epochs // num_batches < wait_until_kl_inc:
     #     kl_coef = 0.
@@ -89,12 +85,8 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         epoch_loss = []
 
     n_batches = len(trainloader)
-    print("Number of batches: ", n_batches)
-    trainloader = utils.inf_generator(trainloader)
-    
-    for _ in range(epochs): # TODO 
-        # for batch in trainloader:
-        # print the first element of the batch
+    trainloader = utils.inf_generator(trainloader) 
+    for itr in range(1, n_batches * (epochs + 1)):
         optimizer.zero_grad()
         batch_dict = utils.get_next_batch(trainloader)
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
@@ -104,24 +96,25 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         running_loss += loss
         if loss_per_epoch:
             epoch_loss.append(loss.item())
-    avg_trainloss = 10 #todo
+    avg_trainloss = running_loss/n_batches
+    if loss_per_epoch:
+        return epoch_loss
     return avg_trainloss
 
 def test(net, testloader, device):    
     """Validate the model on the test set."""
     net.to(device)
-    # # print how big the testloader is 
-    # correct, loss = 0, 0.0
-    # with torch.no_grad():
-    #     for batch in testloader:
-    #         # Fix kl_coef to 0 for testing
-    #         test_res = net.compute_all_losses(batch, n_traj_samples = 1, kl_coef = 0)
-    #         loss += test_res["loss"].item()
-    # accuracy = 0 # TODO implement accuracy
-    # loss = loss / len(testloader)
-    loss = 0.0
-    accuracy = 0.0
-    return loss, accuracy
+    n_batches = len(testloader)
+    testloader = utils.inf_generator(testloader)
+    with torch.no_grad():
+        for itr in range(1,n_batches+1):
+            batch_dict = utils.get_next_batch(testloader)
+            test_res = net.compute_all_losses(batch_dict, n_traj_samples = 1, kl_coef = 0.1)
+            loss = test_res["loss"].item()
+            mse = test_res["mse"].item()
+    loss = loss / n_batches
+    mse = mse / n_batches
+    return loss, mse
 
 
 def get_weights(net):
@@ -187,7 +180,6 @@ def load_data(partition_id: int, num_partitions: int):
 		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
 
     return train_dataloader, test_dataloader
-
 
 
 def create_run_dir(config: UserConfig) -> Path:

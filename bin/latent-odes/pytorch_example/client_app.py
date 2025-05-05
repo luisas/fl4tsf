@@ -66,7 +66,7 @@ class FlowerClient(NumPyClient):
         )
     def _save_layer_weights_to_state(self):
         """Save last layer weights to state."""
-        arr_record = ArrayRecord(self.net.decoder.state_dict()) #TODO
+        arr_record = ArrayRecord(self.net.decoder.state_dict())
 
         # Add to RecordDict (replace if already exists)
         self.client_state[self.local_layer_name] = arr_record
@@ -79,7 +79,7 @@ class FlowerClient(NumPyClient):
         state_dict = self.client_state[self.local_layer_name].to_torch_state_dict()
 
         # apply previously saved classification head by this client
-        self.net.decoder.load_state_dict(state_dict, strict=True) #TODO
+        self.net.decoder.load_state_dict(state_dict, strict=True)
 
     def evaluate(self, parameters, config):
         """Evaluate the global model on the local validation set.

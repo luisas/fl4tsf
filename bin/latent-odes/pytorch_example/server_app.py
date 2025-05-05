@@ -89,11 +89,12 @@ def server_fn(context: Context):
         args.cut_tp = None
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        train_loader, *_ = parse_datasets(args, device)
-        # Extract data loader 
-        # here does not matter if we use train or test loader since it is synthetic and newly generated
+        dataset, time_steps_extrap, basic_collate_fn = parse_datasets(args, device)
 
-        return train_loader
+        test_dataloader = DataLoader(dataset, batch_size = len(dataset), shuffle=False,
+		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
+
+        return test_dataloader
 
     testloader = create_periodic_dataset()
 
