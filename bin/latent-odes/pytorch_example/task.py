@@ -95,7 +95,7 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         loss = train_res["loss"].item()
         running_loss += loss
         if loss_per_epoch:
-            epoch_loss.append(loss.item())
+            epoch_loss.append(train_res["loss"].item())
     avg_trainloss = running_loss/n_batches
     if loss_per_epoch:
         return epoch_loss
@@ -149,11 +149,10 @@ def create_periodic_dataset():
 
 dataset = None # Cache dataset
 
-def load_data(partition_id: int, num_partitions: int):
+def load_data(partition_id: int, num_partitions: int, batch_size: int):
     """Load partition of periodic dataset for federated learning."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Create the full periodic dataset
-    batch_size = 32 # TODO 
     n = 100 # TODO 
 
     # 0. Create the dataset (if not already created)  

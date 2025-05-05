@@ -49,19 +49,16 @@ class FlowerClient(NumPyClient):
             self.local_epochs,
             lr=float(config["lr"]),
             device=self.device,
+            loss_per_epoch=True,
+
         )
         # Save classification head to context's state to use in a future fit() call
         self._save_layer_weights_to_state()
 
         # Return locally-trained model and metrics
-        # return (
-        #     get_weights(self.net),
-        #     len(self.trainloader.dataset),
-        #     {"train_loss": train_loss},
-        # ) #TODO
         return (
             get_weights(self.net),
-            1,
+            len(self.trainloader.dataset),
             {"train_loss": train_loss},
         )
     def _save_layer_weights_to_state(self):
@@ -92,8 +89,7 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         self._load_layer_weights_from_state()
         loss, accuracy = test(self.net, self.valloader, self.device)
-        #return loss, len(self.valloader.dataset), {"accuracy": accuracy} # TODO
-        return loss, 1, {"accuracy": accuracy}
+        return loss, len(self.valloader.dataset), {"accuracy": accuracy} # TODO
 
 
 def client_fn(context: Context):
@@ -101,7 +97,8 @@ def client_fn(context: Context):
     net = Net()
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    trainloader, valloader = load_data(partition_id, num_partitions)
+    batch_size = context.run_config["batch-size"]
+    trainloader, valloader = load_data(partition_id, num_partitions, batch_size)
     local_epochs = context.run_config["local-epochs"]
 
     # Return Client instance
@@ -118,3 +115,5 @@ def client_fn(context: Context):
 app = ClientApp(
     client_fn,
 )
+
+
