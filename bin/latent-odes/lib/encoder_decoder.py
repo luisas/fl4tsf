@@ -230,7 +230,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 		mean_z0, std_z0 = utils.split_last_dim( self.transform_z0( torch.cat((means_z0, std_z0), -1)))
 		std_z0 = std_z0.abs()
 
-		print("mean_z0: {}".format(mean_z0))
 		if save_info:
 			self.extra_info = extra_info
 

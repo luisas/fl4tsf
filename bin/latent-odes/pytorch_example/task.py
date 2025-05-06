@@ -30,15 +30,16 @@ from pytorch_example.get_dataset import get_dataset, basic_collate_fn
 
 def Net():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     obsrv_std = 0.01
-    poisson = False
-    units = 100
-    latents = 10
-    gen_layers = 1
-    rec_dims = 20
+    poisson = True
     rec_layers = 1
-    z0_encoder = "rnn"
-    gru_units = 3
+    gen_layers = 1
+    units = 100
+    gru_units = 100
+    latents = 10
+    rec_dims = 20
+    z0_encoder = "odernn"
     train_classif_w_reconstr = False
     classif = False
     linear_classif = False
@@ -70,32 +71,39 @@ def Net():
 def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
-    
+    n_batches = len(trainloader)
     optimizer = optim.Adamax(net.parameters(), lr=lr)
-
-    # wait_until_kl_inc = 10
-    # if epochs // num_batches < wait_until_kl_inc:
-    #     kl_coef = 0.
-    # else:
-    #     kl_coef = (1-0.99** (epochs // num_batches - wait_until_kl_inc))
-    kl_coef = 0.1
 
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
 
-    n_batches = len(trainloader)
     trainloader = utils.inf_generator(trainloader) 
     for itr in range(1, n_batches * (epochs + 1)):
         optimizer.zero_grad()
+        utils.update_learning_rate(optimizer, decay_rate = 0.999, lowest = lr / 10)
+        wait_until_kl_inc = 10
+        if itr // n_batches < wait_until_kl_inc:
+            kl_coef = 0.
+        else:
+            kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
         batch_dict = utils.get_next_batch(trainloader)
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
         train_res["loss"].backward()
         optimizer.step()
         loss = train_res["loss"].item()
+        mse = train_res["mse"].item()
+        pois_likelihood = train_res["pois_likelihood"].item()
+        ce_loss = train_res["ce_loss"].item()
+        kl_first_p = train_res["kl_first_p"].item()
+        std_first_p = train_res["std_first_p"].item()
+        
         running_loss += loss
         if loss_per_epoch:
             epoch_loss.append(train_res["loss"].item())
+        if itr % n_batches == 0:
+            print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
+
     avg_trainloss = running_loss/n_batches
     if loss_per_epoch:
         return epoch_loss
@@ -144,10 +152,8 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     cut_tp = None
     extrap = False
 
-
     if dataset is None:
         dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
-
 
     # 1. Extract the partition
     partition_len = len(dataset) // num_partitions

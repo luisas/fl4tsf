@@ -18,7 +18,7 @@ def store_periodic_dataset():
 	args.timepoints = 100
 	args.max_t = 5.
 	args.noise_weight = 0.01
-	args.n = 10
+	args.n = 1000
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	dataset, time_steps_extrap, _ = parse_datasets(args, device)
