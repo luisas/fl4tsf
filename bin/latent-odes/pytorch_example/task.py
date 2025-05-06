@@ -46,6 +46,8 @@ def Net():
     classif_per_tp = False
     n_labels = 1
     input_dim = 1
+
+    
     obsrv_std = torch.Tensor([obsrv_std]).to(device)
     z0_prior = Normal(torch.Tensor([0.0]).to(device), torch.Tensor([1.]).to(device))
     model = create_LatentODE_model(latents,

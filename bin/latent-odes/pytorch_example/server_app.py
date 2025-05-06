@@ -38,8 +38,8 @@ def on_fit_config(server_round: int):
     """Construct `config` that clients receive when running `fit()`"""
     lr = 0.1
     # Enable a simple form of learning rate decay
-    #if server_round > 10:
-    #    lr /= 2
+    if server_round > 10:
+       lr /= 2
     return {"lr": lr}
 
 
@@ -64,8 +64,6 @@ def server_fn(context: Context):
     ndarrays = get_weights(Net())
     parameters = ndarrays_to_parameters(ndarrays)
 
-
-    # TODO get it from config
     dataset_name = "periodic"
     sample_tp = 0.5
     cut_tp = None

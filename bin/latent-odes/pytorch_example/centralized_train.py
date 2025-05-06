@@ -7,7 +7,6 @@ from pytorch_example.get_dataset import get_dataset, basic_collate_fn
 
 
 # Hyperparameters
-
 dataset_name = "periodic"
 sample_tp = 0.5
 cut_tp = None

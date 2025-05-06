@@ -9,18 +9,9 @@ import os
 
 # Creates a periodic dataset and stores it in the specified directory
 # Toy example dataset for Rubanova et al. Latent ODEs
-def store_periodic_dataset():
+def store_periodic_dataset(args):
 	"""Create a periodic dataset."""
-
-	args = SimpleNamespace()
-	args.dataset = "periodic"
-	args.extrap = False
-	args.timepoints = 100
-	args.max_t = 5.
-	args.noise_weight = 0.01
-	args.n = 1000
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 	dataset, time_steps_extrap, _ = parse_datasets(args, device)
 
 	# 2. Split into train and test
@@ -50,4 +41,11 @@ def store_periodic_dataset():
 
 
 if __name__ == "__main__":
-    store_periodic_dataset()
+	args = SimpleNamespace()
+	args.dataset = "periodic"
+	args.extrap = False
+	args.timepoints = 100
+	args.max_t = 5.
+	args.noise_weight = 0.01
+	args.n = 1000
+	store_periodic_dataset(args)

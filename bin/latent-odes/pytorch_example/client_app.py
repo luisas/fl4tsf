@@ -41,7 +41,7 @@ class FlowerClient(NumPyClient):
 
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in
-        self._load_layer_weights_from_state()
+        #self._load_layer_weights_from_state()
 
         train_loss = train(
             self.net,
@@ -61,22 +61,22 @@ class FlowerClient(NumPyClient):
             len(self.trainloader.dataset),
             {"train_loss": train_loss},
         )
-    def _save_layer_weights_to_state(self):
-        """Save last layer weights to state."""
-        arr_record = ArrayRecord(self.net.decoder.state_dict())
+    # def _save_layer_weights_to_state(self):
+    #     """Save last layer weights to state."""
+    #     arr_record = ArrayRecord(self.net.decoder.state_dict())
 
-        # Add to RecordDict (replace if already exists)
-        self.client_state[self.local_layer_name] = arr_record
+    #     # Add to RecordDict (replace if already exists)
+    #     self.client_state[self.local_layer_name] = arr_record
 
-    def _load_layer_weights_from_state(self):
-        """Load last layer weights to state."""
-        if self.local_layer_name not in self.client_state.array_records:
-            return
+    # def _load_layer_weights_from_state(self):
+    #     """Load last layer weights to state."""
+    #     if self.local_layer_name not in self.client_state.array_records:
+    #         return
 
-        state_dict = self.client_state[self.local_layer_name].to_torch_state_dict()
+    #     state_dict = self.client_state[self.local_layer_name].to_torch_state_dict()
 
-        # apply previously saved classification head by this client
-        self.net.decoder.load_state_dict(state_dict, strict=True)
+    #     # apply previously saved classification head by this client
+    #     self.net.decoder.load_state_dict(state_dict, strict=True)
 
     def evaluate(self, parameters, config):
         """Evaluate the global model on the local validation set.
