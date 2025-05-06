@@ -20,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize model and load data
 model = Net()
-train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
+train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=".")
 # check how big the dataset is 
 print(f"Train dataset size: {len(train_dataset)}")
 test_dataset, _ = get_dataset(dataset_name = dataset_name, type="test")
@@ -49,12 +49,12 @@ print(f"Test accuracy after training: {accuracy:.4f}")
 #######################################
 
 df = pd.DataFrame(loss_training)
-if not os.path.exists("outputs/centralized_outputs"):
-    os.makedirs("outputs/centralized_outputs", exist_ok=True)
+if not os.path.exists("centralized_outputs"):
+    os.makedirs("centralized_outputs", exist_ok=True)
 # add epochs and header
 df.columns = ["loss"]
 df.index.name = "epoch"
-df.to_csv("outputs/centralized_outputs/loss_per_epoch.csv", index=True)
+df.to_csv("centralized_loss_per_epoch.csv", index=True)
 df_test = pd.DataFrame({"loss": loss, "accuracy": accuracy}, index=[0])
-df_test.to_csv("outputs/centralized_outputs/test_loss_accuracy.csv", index=False)
+df_test.to_csv("centralized_test_loss_accuracy.csv", index=False)
 

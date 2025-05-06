@@ -17,7 +17,6 @@ from torch.utils.data import DataLoader
 from flwr.common.typing import UserConfig
 from types import SimpleNamespace
 
-
 from lib.rnn_baselines import *
 from lib.ode_rnn import *
 from lib.create_latent_ode_model import create_LatentODE_model
