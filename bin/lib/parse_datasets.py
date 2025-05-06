@@ -11,7 +11,7 @@ import torch.nn as nn
 
 import lib.utils as utils
 from lib.diffeq_solver import DiffeqSolver
-from generate_timeseries import Periodic_1d
+from lib.generate_timeseries import Periodic_1d
 from torch.distributions import uniform
 
 from torch.utils.data import DataLoader
@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 # from physionet import PhysioNet, variable_time_collate_fn, get_data_min_max
 # from person_activity import PersonActivity, variable_time_collate_fn_activity
 
-from sklearn import model_selection
+#from sklearn import model_selection
 import random
 
 #####################################################################################################

@@ -3,27 +3,21 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pytorch-example"
+name = "flower"
 version = "1.0.0"
-description = "Federated Learning with PyTorch and Flower (Advanced Example)"
+description = "Federated Learning for Latent ODEs"
 license = "Apache-2.0"
-dependencies = [
-    "flwr[simulation]>=1.18.0",
-    "flwr-datasets[vision]>=0.5.0",
-    "torch==2.5.1",
-    "torchvision==0.20.1",
-    "wandb==0.17.8",
-]
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 
 [tool.flwr.app]
-publisher = "flwrlabs"
+publisher = "luisas"
 
 [tool.flwr.app.components]
-serverapp = "pytorch_example.server_app:app"
-clientapp = "pytorch_example.client_app:app"
+serverapp = "flower.server_app:app"
+clientapp = "flower.client_app:app"
 
 [tool.flwr.app.config]
 num-server-rounds = 2

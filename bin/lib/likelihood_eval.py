@@ -5,8 +5,6 @@
 
 import gc
 import numpy as np
-import sklearn as sk
-import numpy as np
 #import gc
 import torch
 import torch.nn as nn

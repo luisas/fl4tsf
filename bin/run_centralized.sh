@@ -1,1 +1,1 @@
-python pytorch_example/centralized_train.py
+python centralized_train.py

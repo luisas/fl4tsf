@@ -4,8 +4,8 @@ import os
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from pytorch_example.task import Net, load_data, train, test
-from pytorch_example.get_dataset import get_dataset, basic_collate_fn
+from flower.task import Net, load_data, train, test
+from flower.get_dataset import get_dataset, basic_collate_fn
 
 
 # Hyperparameters
@@ -17,12 +17,14 @@ batch_size = 50
 epochs = 2
 lr = 0.01
 
+print("Testing")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # Initialize model and load data
 model = Net()
-train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
+train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=".")
 # check how big the dataset is 
 print(f"Train dataset size: {len(train_dataset)}")
 test_dataset, _ = get_dataset(dataset_name = dataset_name, type="test")
@@ -46,17 +48,16 @@ loss, accuracy = test(model, test_loader, device)
 print(f"Test loss after training: {loss:.4f}")
 print(f"Test accuracy after training: {accuracy:.4f}")
 
-#######################################
-# Store files
-#######################################
+# #######################################
+# # Store files
+# #######################################
 
 df = pd.DataFrame(loss_training)
-if not os.path.exists("outputs/centralized_outputs"):
-    os.makedirs("outputs/centralized_outputs", exist_ok=True)
+
 # add epochs and header
 df.columns = ["loss"]
 df.index.name = "epoch"
-df.to_csv("outputs/centralized_outputs/loss_per_epoch.csv", index=True)
+df.to_csv("loss_per_epoch.csv", index=True)
 df_test = pd.DataFrame({"loss": loss, "accuracy": accuracy}, index=[0])
-df_test.to_csv("outputs/centralized_outputs/test_loss_accuracy.csv", index=False)
+df_test.to_csv("test_loss_accuracy.csv", index=False)
 

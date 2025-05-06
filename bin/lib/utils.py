@@ -15,7 +15,6 @@ import math
 import glob
 import re
 from shutil import copyfile
-import sklearn as sk
 import subprocess
 import datetime
 

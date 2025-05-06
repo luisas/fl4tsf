@@ -24,7 +24,7 @@ from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
-from pytorch_example.get_dataset import get_dataset, basic_collate_fn
+from flower.get_dataset import get_dataset, basic_collate_fn
 
 
 def Net():

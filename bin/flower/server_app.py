@@ -1,8 +1,8 @@
 """pytorch-example: A Flower / PyTorch app."""
 
 import torch
-from pytorch_example.strategy import CustomFedAvg
-from pytorch_example.task import (
+from flower.strategy import CustomFedAvg
+from flower.task import (
     Net,
     get_weights,
     set_weights,
@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
-from pytorch_example.get_dataset import get_dataset, basic_collate_fn
+from flower.get_dataset import get_dataset, basic_collate_fn
 import lib.utils as utils
 
 def gen_evaluate_fn(
