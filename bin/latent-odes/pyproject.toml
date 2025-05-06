@@ -29,10 +29,10 @@ clientapp = "pytorch_example.client_app:app"
 num-server-rounds = 2
 fraction-fit = 1
 fraction-evaluate = 1
-local-epochs = 2
+local-epochs = 10
 server-device = "cpu"
 use-wandb = true
-batch-size = 32
+batch-size = 50
 learning-rate = 0.1
 
 [tool.flwr.federations]

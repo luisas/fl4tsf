@@ -53,7 +53,7 @@ class FlowerClient(NumPyClient):
 
         )
         # Save classification head to context's state to use in a future fit() call
-        self._save_layer_weights_to_state()
+        # self._save_layer_weights_to_state()
 
         # Return locally-trained model and metrics
         return (
@@ -87,9 +87,9 @@ class FlowerClient(NumPyClient):
         set_weights(self.net, parameters)
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in
-        self._load_layer_weights_from_state()
+        # self._load_layer_weights_from_state()
         loss, accuracy = test(self.net, self.valloader, self.device)
-        return loss, len(self.valloader.dataset), {"accuracy": accuracy} # TODO
+        return loss, len(self.valloader.dataset), {"accuracy": accuracy}
 
 
 def client_fn(context: Context):
@@ -107,7 +107,7 @@ def client_fn(context: Context):
     # receives the same Context instance (it's a 1:1 mapping)
     client_state = context.state
     return FlowerClient(
-        net, client_state, trainloader, valloader, local_epochs
+        net, client_state, trainloader,valloader, local_epochs
     ).to_client()
 
 

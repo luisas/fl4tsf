@@ -10,12 +10,11 @@ from pytorch_example.task import (
 )
 from torch.utils.data import DataLoader
 
-from datasets import load_dataset
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
-from lib.parse_datasets import parse_datasets
-
+from pytorch_example.get_dataset import get_dataset, basic_collate_fn
+import lib.utils as utils
 
 def gen_evaluate_fn(
     testloader: DataLoader,
@@ -66,37 +65,18 @@ def server_fn(context: Context):
     parameters = ndarrays_to_parameters(ndarrays)
 
 
+    # TODO get it from config
+    dataset_name = "periodic"
+    sample_tp = 0.5
+    cut_tp = None
+    batch_size = 50
+    extrap = False
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Prepare dataset for central evaluation
-
-    # This is the exact same dataset as the one donwloaded by the clients via
-    # FlowerDatasets. However, we don't use FlowerDatasets for the server since
-    # partitioning is not needed.
-    # We make use of the "test" split only
-
-    def create_periodic_dataset():
-        """Create a periodic dataset."""
-        args = SimpleNamespace()
-        args.dataset = "periodic"
-        args.extrap = False
-        args.timepoints = 5
-        args.max_t = 5.
-        args.n = 64
-        args.noise_weight = 0.1
-        args.batch_size = 32
-        args.quantization = 0.1
-        args.classif = False
-        args.sample_tp = 0.5
-        args.cut_tp = None
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        dataset, time_steps_extrap, basic_collate_fn = parse_datasets(args, device)
-
-        test_dataloader = DataLoader(dataset, batch_size = len(dataset), shuffle=False,
-		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
-
-        return test_dataloader
-
-    testloader = create_periodic_dataset()
+    test_dataset, test_timestamps = get_dataset(dataset_name = dataset_name, type="test")
+    testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
     # Define strategy
     strategy = CustomFedAvg(

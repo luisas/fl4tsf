@@ -128,6 +128,7 @@ def load_data(partition_id: int, num_partitions: int):
     # Only initialize `FederatedDataset` once
     global fds
     if fds is None:
+        print("Loading dataset...######################################")
         partitioner = DirichletPartitioner(
             num_partitions=num_partitions,
             partition_by="label",

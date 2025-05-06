@@ -25,7 +25,7 @@ from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
-
+from pytorch_example.get_dataset import get_dataset, basic_collate_fn
 
 
 def Net():
@@ -127,40 +127,27 @@ def set_weights(net, parameters):
     net.load_state_dict(state_dict, strict=True)
 
 
-def create_periodic_dataset():
-    """Create a periodic dataset."""
-    args = SimpleNamespace()
-    args.dataset = "periodic"
-    args.extrap = False
-    args.timepoints = 5
-    args.max_t = 5.
-    args.n = 100
-    args.noise_weight = 0.1
-    args.batch_size = 32
-    args.quantization = 0.1
-    args.classif = False
-    args.sample_tp = 0.5
-    args.cut_tp = None
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    dataset, timestamps, basic_collate_fn = parse_datasets(args, device)
-
-    return  dataset, timestamps, basic_collate_fn
-
 dataset = None # Cache dataset
 
 def load_data(partition_id: int, num_partitions: int, batch_size: int):
     """Load partition of periodic dataset for federated learning."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Create the full periodic dataset
-    n = 100 # TODO 
+    # 0. Create the dataset (if not already created)
 
-    # 0. Create the dataset (if not already created)  
+    # TODO 
     global dataset
     global time_steps_extrap
     global basic_collate_fn
+    dataset_name = "periodic"
+    sample_tp = 50
+    cut_tp = None
+    extrap = False
+
+
     if dataset is None:
-        dataset, time_steps_extrap, basic_collate_fn = create_periodic_dataset()
+        dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
+
 
     # 1. Extract the partition
     partition_len = len(dataset) // num_partitions
@@ -170,15 +157,14 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     if len(partition_dataset) == 0:
         raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
 
-    # 2. Split into train and test
-    train_y, test_y = utils.split_train_test(partition_dataset, train_fraq = 0.8)
+    train_dataset, validation_dataset = utils.split_train_test(partition_dataset, train_fraq = 0.8)
 
-    train_dataloader = DataLoader(train_y, batch_size = batch_size, shuffle=False,
-		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "train"))
-    test_dataloader = DataLoader(test_y, batch_size = n, shuffle=False,
-		collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, data_type = "test"))
+    train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+    validation_loader = DataLoader(validation_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
-    return train_dataloader, test_dataloader
+    return train_loader, validation_loader
 
 
 def create_run_dir(config: UserConfig) -> Path:
