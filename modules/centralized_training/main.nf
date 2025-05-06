@@ -12,7 +12,7 @@ process CENTRALIZED_TRAINING {
     tuple val(meta), path(data)
 
     output:
-    tuple val(meta), path("outputs/*"), emit: metrics
+    tuple val(meta), path("*.csv"), emit: metrics
 
     when:
     task.ext.when == null || task.ext.when
@@ -21,10 +21,6 @@ process CENTRALIZED_TRAINING {
     def args = task.ext.args ?: ''
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
-    mkdir -p \$MPLCONFIGDIR
-    echo "running in the container"
-    mkdir -p outputs
-
     centralized_train.py
     """
 }
