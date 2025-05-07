@@ -78,6 +78,7 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
+        epoch_mse = []
 
     trainloader = utils.inf_generator(trainloader) 
     for itr in range(1, n_batches * (epochs + 1)):
@@ -103,11 +104,12 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         if itr % n_batches == 0:
             if loss_per_epoch:
                 epoch_loss.append(train_res["loss"].item())
+                epoch_mse.append(train_res["mse"].item())
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
 
     avg_trainloss = running_loss/n_batches
     if loss_per_epoch:
-        return epoch_loss
+        return epoch_loss, epoch_mse
     return avg_trainloss
 
 def test(net, testloader, device):    

@@ -3,6 +3,7 @@
 process CENTRALIZED_TRAINING {
     tag "$meta.id"
     label 'process_low'
+    
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'oras://community.wave.seqera.io/library/pip_flwr-datasets_flwr_numpy_pruned:527707828ce78fbf' :
@@ -13,6 +14,7 @@ process CENTRALIZED_TRAINING {
 
     output:
     tuple val(meta), path("*.csv"), emit: metrics
+    tuple val(meta), path("*.pth"), emit: model
 
     when:
     task.ext.when == null || task.ext.when

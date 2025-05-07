@@ -14,13 +14,14 @@ sample_tp = 0.5
 cut_tp = None
 extrap = False
 batch_size = 50
-epochs = 2
+epochs = 300
 lr = 0.01
 
 print("Testing")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+print(f"Using device: {device}")
 
 # Initialize model and load data
 model = Net()
@@ -48,14 +49,17 @@ loss, accuracy = test(model, test_loader, device)
 print(f"Test loss after training: {loss:.4f}")
 print(f"Test accuracy after training: {accuracy:.4f}")
 
+# Store the model 
+torch.save(model.state_dict(), "model.pth")
+
 # #######################################
 # # Store files
 # #######################################
 
-df = pd.DataFrame(loss_training)
+epoch_loss, mse_loss = loss_training
+df = pd.DataFrame({"loss": epoch_loss, "mse": mse_loss})
 
 # add epochs and header
-df.columns = ["loss"]
 df.index.name = "epoch"
 df.to_csv("loss_per_epoch.csv", index=True)
 df_test = pd.DataFrame({"loss": loss, "accuracy": accuracy}, index=[0])

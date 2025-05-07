@@ -14,10 +14,10 @@ workflow {
 
     // Load dataset 
     Channel
-        .fromPath("${projectDir}/data/periodic/*")
+        .fromPath("${projectDir}/data/${params.dataset}/*")
         .collect()
         .map{ dir -> 
-                [[id: "test"], dir]
+                [[id: "${params.dataset}"], dir]
         }  
         .set { training_data_ch }
 
