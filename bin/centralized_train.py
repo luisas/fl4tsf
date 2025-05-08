@@ -16,6 +16,7 @@ extrap = False
 batch_size = 50
 epochs = 1
 lr = 0.01
+data_folder = "." #../data/periodic
 
 print("Testing")
 
@@ -25,7 +26,7 @@ print(f"Using device: {device}")
 
 # Initialize model and load data
 model = Net()
-train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder="../data/periodic")
+train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
 # check how big the dataset is 
 print(f"Train dataset size: {len(train_dataset)}")
 test_dataset, _ = get_dataset(dataset_name = dataset_name, type="test")

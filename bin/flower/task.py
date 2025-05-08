@@ -183,7 +183,7 @@ def create_run_dir(config: UserConfig) -> Path:
     current_time = datetime.now()
     run_dir = "federated_outputs"
     # Save path is based on the current directory
-    save_path = Path.cwd() / f"outputs/{run_dir}"
+    save_path = Path.cwd() / f"{run_dir}"
     save_path.mkdir(parents=True, exist_ok=True)
 
     # Save run config as json

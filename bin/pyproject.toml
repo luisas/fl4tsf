@@ -20,13 +20,13 @@ serverapp = "flower.server_app:app"
 clientapp = "flower.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 25
+num-server-rounds = 2
 fraction-fit = 1
 fraction-evaluate = 1
-local-epochs = 5
+local-epochs = 2
 server-device = "cpu"
 use-wandb = true
-batch-size = 50 #32
+batch-size = 50
 learning-rate = 0.1
 
 [tool.flwr.federations]

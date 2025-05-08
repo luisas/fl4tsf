@@ -17,12 +17,16 @@ workflow {
         .fromPath("${projectDir}/data/${params.dataset}/*")
         .collect()
         .map{ dir -> 
-                [[id: "${params.dataset}"], dir]
+                [[id: "${params.dataset}", epochs: "${params.c_epochs}"], dir]
         }  
         .set { training_data_ch }
 
-    training_data_ch.view()
+    // Load bin
+    Channel
+        .fromPath("${projectDir}/bin/*")
+        .collect()
+        .set { bin_ch }
 
-    FEDERATED_LEARNING_SIMULATION(training_data_ch)
+    FEDERATED_LEARNING_SIMULATION(training_data_ch, bin_ch)
 
 }
