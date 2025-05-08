@@ -13,8 +13,8 @@ process FEDERATED_TRAINING {
     path(bin)
 
     output:
-    tuple val(meta), path("federated_outputs/*.json"), emit: metrics
-    tuple val(meta), path("federated_outputs/*.pth") , emit: model
+    tuple val(meta), path("outputs/federated_outputs/*.json"), emit: metrics
+    tuple val(meta), path("outputs/federated_outputs/*.pth") , emit: model
 
     when:
     task.ext.when == null || task.ext.when
@@ -23,6 +23,11 @@ process FEDERATED_TRAINING {
     def args = task.ext.args ?: ''
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
-    flwr run .
+    flwr run . --run-config "num-server-rounds=${meta.serverrounds} \
+                    fraction-fit=${meta.fractionfit} \
+                    fraction-evaluate=${meta.fractionevaluate} \
+                    local-epochs=${meta.localepochs} \
+                    batch-size=${meta.batch_size}\ 
+                    learning-rate=${meta.lr} " 
     """
 }

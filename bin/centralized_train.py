@@ -8,28 +8,41 @@ from flower.task import Net, load_data, train, test
 from flower.get_dataset import get_dataset, basic_collate_fn
 
 
-# Hyperparameters
-dataset_name = "periodic"
-sample_tp = 0.5
+
+def get_parameters():
+    import argparse
+    parser = argparse.ArgumentParser(description='Train a centralized model.')
+    parser.add_argument('--dataset', type=str, default="periodic", help='Dataset name')
+    parser.add_argument('--sample_tp', type=float, default=0.5, help='Sample time period')
+    parser.add_argument('--batch_size', type=int, default=50, help='Batch size')
+    parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
+    args = parser.parse_args()
+    return args
+
+args = get_parameters()
+dataset_name = args.dataset
+sample_tp = args.sample_tp
+batch_size = args.batch_size
+epochs = args.epochs
+lr = args.lr
+
+
+# Fix 
 cut_tp = None
 extrap = False
-batch_size = 50
-epochs = 1
-lr = 0.01
-data_folder = "." #../data/periodic
+data_folder = "." #../data/periodic/periodic
 
-print("Testing")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 print(f"Using device: {device}")
 
 # Initialize model and load data
 model = Net()
-train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
-# check how big the dataset is 
-print(f"Train dataset size: {len(train_dataset)}")
-test_dataset, _ = get_dataset(dataset_name = dataset_name, type="test")
+
+train_dataset     = torch.load(f"{dataset_name}_train.pt", weights_only=True)
+time_steps_extrap = torch.load(f"{dataset_name}_time_steps.pt", weights_only=True)
+test_dataset      = torch.load(f"{dataset_name}_test.pt", weights_only=True)
 
 # train dataset 
 

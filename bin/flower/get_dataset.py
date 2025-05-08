@@ -6,17 +6,18 @@ from types import SimpleNamespace
 from lib import utils
 import os
 
-def get_dataset(dataset_name, type, data_folder = "."):
+def get_dataset(dataset_name, type, data_folder = None):
     """
     Load the dataset from the specified folder.
     """
-    # Check if the dataset exists
-    if not os.path.exists(data_folder):
-        raise FileNotFoundError(f"Dataset folder {data_folder} does not exist.")
     
     # Load the dataset
-    dataset = torch.load(os.path.join(data_folder, f"{dataset_name}_{type}.pt"), weights_only=True)
-    timestamps = torch.load(os.path.join(data_folder, f"{dataset_name}_time_steps.pt"), weights_only=True)
+    if data_folder is not None:
+        dataset = torch.load(os.path.join(data_folder, f"{dataset_name}_{type}.pt"), weights_only=True)
+        timestamps = torch.load(os.path.join(data_folder, f"{dataset_name}_time_steps.pt"), weights_only=True)
+    else:
+        dataset = torch.load(f"{dataset_name}_{type}.pt", weights_only=True)
+        timestamps = torch.load(f"{dataset_name}_time_steps.pt", weights_only=True)
     
     return dataset, timestamps
 

@@ -23,6 +23,10 @@ process CENTRALIZED_TRAINING {
     def args = task.ext.args ?: ''
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
-    centralized_train.py
+    centralized_train.py --epochs ${meta.epochs} \\
+                         --lr ${meta.lr} \\
+                         --batch_size ${meta.batch_size} \\
+                         --dataset ${meta.id} \\
+                         --sample_tp ${meta.sample_tp}
     """
 }
