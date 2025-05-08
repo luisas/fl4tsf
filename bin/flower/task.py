@@ -158,6 +158,7 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     if dataset is None:
         dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
 
+
     # 1. Extract the partition
     partition_len = len(dataset) // num_partitions
     start = partition_id * partition_len

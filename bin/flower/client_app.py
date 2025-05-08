@@ -49,7 +49,7 @@ class FlowerClient(NumPyClient):
             self.local_epochs,
             lr=float(config["lr"]),
             device=self.device,
-            loss_per_epoch=True,
+            loss_per_epoch=False,
 
         )
         # Save classification head to context's state to use in a future fit() call

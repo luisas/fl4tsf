@@ -14,7 +14,7 @@ sample_tp = 0.5
 cut_tp = None
 extrap = False
 batch_size = 50
-epochs = 300
+epochs = 1
 lr = 0.01
 
 print("Testing")
@@ -25,7 +25,7 @@ print(f"Using device: {device}")
 
 # Initialize model and load data
 model = Net()
-train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=".")
+train_dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder="../data/periodic")
 # check how big the dataset is 
 print(f"Train dataset size: {len(train_dataset)}")
 test_dataset, _ = get_dataset(dataset_name = dataset_name, type="test")

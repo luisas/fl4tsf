@@ -100,7 +100,7 @@ class Baseline(nn.Module):
 
 	def compute_all_losses(self, batch_dict,
 		n_tp_to_sample = None, n_traj_samples = 1, kl_coef = 1.):
-
+		
 		# Condition on subsampled points
 		# Make predictions for all the points
 		pred_x, info = self.get_reconstruction(batch_dict["tp_to_predict"], 
@@ -259,9 +259,9 @@ class VAE_Baseline(nn.Module):
 			mask = batch_dict["observed_mask"], n_traj_samples = n_traj_samples,
 			mode = batch_dict["mode"])
 
-		#print("get_reconstruction done -- computing likelihood")
 		fp_mu, fp_std, fp_enc = info["first_point"]
 		fp_std = fp_std.abs()
+
 		fp_distr = Normal(fp_mu, fp_std)
 
 		assert(torch.sum(fp_std < 0) == 0.)

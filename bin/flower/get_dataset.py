@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from lib import utils
 import os
 
-def get_dataset(dataset_name, type, data_folder = "."):
+def get_dataset(dataset_name, type, data_folder = "../data/periodic/"):
     """
     Load the dataset from the specified folder.
     """

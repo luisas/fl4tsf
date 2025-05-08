@@ -220,8 +220,6 @@ def get_next_batch(dataloader):
 	batch_dict["observed_data"] = data_dict["observed_data"][:, non_missing_tp]
 	batch_dict["observed_tp"] = data_dict["observed_tp"][non_missing_tp]
 
-	# print("observed data")
-	# print(batch_dict["observed_data"].size())
 
 	if ("observed_mask" in data_dict) and (data_dict["observed_mask"] is not None):
 		batch_dict["observed_mask"] = data_dict["observed_mask"][:, non_missing_tp]
@@ -233,8 +231,6 @@ def get_next_batch(dataloader):
 	batch_dict["data_to_predict"] = data_dict["data_to_predict"][:, non_missing_tp]
 	batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][non_missing_tp]
 
-	# print("data_to_predict")
-	# print(batch_dict["data_to_predict"].size())
 
 	if ("mask_predicted_data" in data_dict) and (data_dict["mask_predicted_data"] is not None):
 		batch_dict["mask_predicted_data"] = data_dict["mask_predicted_data"][:, non_missing_tp]
@@ -505,9 +501,6 @@ def split_and_subsample_batch(data_dict, args, data_type = "train"):
 	# 	processed_dict = subsample_observed_data(processed_dict, 
 	# 		n_tp_to_sample = args.sample_tp)
 	return processed_dict
-
-
-
 
 
 def compute_loss_all_batches(model,
