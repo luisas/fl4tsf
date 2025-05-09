@@ -15,6 +15,7 @@ from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
 from flower.get_dataset import get_dataset, basic_collate_fn
 import lib.utils as utils
+from flower.model_config import get_model_config
 
 def gen_evaluate_fn(
     testloader: DataLoader,
@@ -64,15 +65,24 @@ def server_fn(context: Context):
     ndarrays = get_weights(Net())
     parameters = ndarrays_to_parameters(ndarrays)
 
-    dataset_name = "periodic"
-    sample_tp = 0.5
-    cut_tp = None
-    batch_size = 50
-    extrap = False
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # read them in from model.config
+    model_config = get_model_config(file_path="model.config")
+
+    dataset_name = model_config["dataset_name"]
+    sample_tp = float(model_config["sample_tp"])
+    cut_tp = model_config["cut_tp"]
+    if cut_tp != "None" and cut_tp != None:
+        cut_tp = float(cut_tp)
+    else:
+        cut_tp = None 
+    batch_size = int(model_config["batch_size"])
+    extrap = bool(model_config["extrap"])
+    data_folder = model_config["data_folder"]
+
     # Prepare dataset for central evaluation
-    test_dataset, test_timestamps = get_dataset(dataset_name = dataset_name, type="test")
+    test_dataset, test_timestamps = get_dataset(dataset_name = dataset_name, type="test", data_folder=data_folder)
     testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
         collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 

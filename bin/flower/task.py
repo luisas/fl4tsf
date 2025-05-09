@@ -25,27 +25,28 @@ from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
 from flower.get_dataset import get_dataset, basic_collate_fn
-
+from flower.model_config import get_model_config
 
 def Net():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    obsrv_std = 0.01
-    poisson = True
-    rec_layers = 1
-    gen_layers = 1
-    units = 100
-    gru_units = 100
-    latents = 10
-    rec_dims = 20
-    z0_encoder = "odernn"
-    train_classif_w_reconstr = False
-    classif = False
-    linear_classif = False
-    classif_per_tp = False
-    n_labels = 1
-    input_dim = 1
+    model_config = get_model_config(file_path="model.config")
 
+    obsrv_std = float(model_config["obsrv_std"])
+    poisson = model_config["poisson"] == "True"
+    rec_layers = int(model_config["rec_layers"])
+    gen_layers = int(model_config["gen_layers"])
+    units = int(model_config["units"])
+    gru_units = int(model_config["gru_units"])
+    latents = int(model_config["latents"])
+    rec_dims = int(model_config["rec_dims"])
+    z0_encoder = model_config["z0_encoder"]
+    train_classif_w_reconstr = model_config["train_classif_w_reconstr"] == "True"
+    classif = model_config["classif"] == "True"
+    linear_classif = model_config["linear_classif"] == "True"
+    classif_per_tp = model_config["classif_per_tp"] == "True"
+    n_labels = int(model_config["n_labels"])
+    input_dim = int(model_config["input_dim"])
     
     obsrv_std = torch.Tensor([obsrv_std]).to(device)
     z0_prior = Normal(torch.Tensor([0.0]).to(device), torch.Tensor([1.]).to(device))
@@ -146,17 +147,27 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     # Create the full periodic dataset
     # 0. Create the dataset (if not already created)
 
-    # TODO 
     global dataset
     global time_steps_extrap
     global basic_collate_fn
-    dataset_name = "periodic"
-    sample_tp = 50
-    cut_tp = None
-    extrap = False
+    global sample_tp
+    global cut_tp
+    global extrap
+    global data_folder
+    global dataset_name
 
     if dataset is None:
-        dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train")
+        model_config = get_model_config(file_path="model.config")
+        dataset_name = model_config["dataset_name"]
+        sample_tp = float(model_config["sample_tp"])
+        cut_tp = model_config["cut_tp"]
+        if cut_tp != "None" and cut_tp != None:
+            cut_tp = float(cut_tp)
+        else:
+            cut_tp = None
+        extrap = bool(model_config["extrap"])
+        data_folder = model_config["data_folder"]
+        dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
 
 
     # 1. Extract the partition

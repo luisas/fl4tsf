@@ -11,6 +11,7 @@ process CENTRALIZED_TRAINING {
 
     input:
     tuple val(meta), path(data)
+    path(config)
 
     output:
     tuple val(meta), path("*.csv"), emit: metrics

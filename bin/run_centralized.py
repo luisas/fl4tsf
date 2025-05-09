@@ -1,0 +1,1 @@
+python centralized_train.py --dataset periodic --sample_tp 0.5 --batch_size 50 --epochs 1 --lr 0.01  --dataset_name "../data/periodic/periodic" --output_dir "../results_local/"

@@ -17,11 +17,16 @@ def get_parameters():
     parser.add_argument('--batch_size', type=int, default=50, help='Batch size')
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('--dataset_name', type=str, default=None, help='Dataset name')
+    parser.add_argument('--output_dir', type=str, default=".", help='Output directory')
     args = parser.parse_args()
     return args
 
 args = get_parameters()
-dataset_name = args.dataset
+if args.dataset_name is not None:
+    dataset_name = args.dataset_name
+else:
+    dataset_name = args.dataset
 sample_tp = args.sample_tp
 batch_size = args.batch_size
 epochs = args.epochs
@@ -73,9 +78,16 @@ torch.save(model.state_dict(), "model.pth")
 epoch_loss, mse_loss = loss_training
 df = pd.DataFrame({"loss": epoch_loss, "mse": mse_loss})
 
+
+# if output_dir does not exist, create it
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 # add epochs and header
 df.index.name = "epoch"
-df.to_csv("loss_per_epoch.csv", index=True)
+# add output directory
+df.to_csv(os.path.join(args.output_dir, "loss_per_epoch.csv"), index=True)
+
 df_test = pd.DataFrame({"loss": loss, "accuracy": accuracy}, index=[0])
-df_test.to_csv("test_loss_accuracy.csv", index=False)
+# add output directory
+df_test.to_csv(os.path.join(args.output_dir, "test_loss_accuracy.csv"), index=False)
 

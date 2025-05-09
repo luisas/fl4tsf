@@ -16,26 +16,67 @@ workflow {
     // Centralized meta channel
     Channel
         .of([
-                [id: "${params.dataset}", 
+                [id: "${params.dataset}",
+                data_folder: "${params.dataset}", 
                 epochs: "${params.epochs}", 
                 lr: "${params.lr}", 
                 batch_size: "${params.batch_size}", 
-                sample_tp: "${params.sample_tp}"]
+                sample_tp: "${params.sample_tp}",
+                cut_tp: "${params.cut_tp}",
+                extrap: "${params.extrap}"]
         ])
         .set { meta_centralized }
+
+
+    // Model parameters
+    Channel
+        .of([
+                [obsrv_std: "${params.obsrv_std}",
+                poisson: "${params.poisson}",
+                rec_layers: "${params.rec_layers}",
+                gen_layers: "${params.gen_layers}",
+                units: "${params.units}",
+                gru_units: "${params.gru_units}",
+                latents: "${params.latents}",
+                rec_dims: "${params.rec_dims}",
+                z0_encoder: "${params.z0_encoder}",
+                train_classif_w_reconstr: "${params.train_classif_w_reconstr}",
+                classif: "${params.classif}",
+                linear_classif: "${params.linear_classif}",
+                classif_per_tp: "${params.classif_per_tp}",
+                n_labels: "${params.n_labels}",
+                input_dim: "${params.input_dim}"]
+        ])
+        .set { meta_model_params }
+
+
 
     // Federated meta channel
     Channel
         .of([
-                [id: "${params.dataset}", 
+                [
+                obsrv_std: "${params.obsrv_std}", 
                 serverrounds: "${params.serverrounds}", 
                 fractionfit: "${params.fractionfit}", 
                 fractionevaluate: "${params.fractionevaluate}", 
                 localepochs: "${params.localepochs}", 
-                batch_size: "${params.batch_size}", 
-                lr: "${params.lr}", 
                 numsupernodes: "${params.numsupernodes}"]
         ])
+        .set { meta_federated }
+
+
+    meta_centralized 
+        .combine(meta_model_params)
+        .map{ meta, meta2 -> 
+                [meta + meta2]
+        }
+        .set { meta_centralized }
+    
+    meta_centralized
+        .combine(meta_federated)
+        .map{ meta, meta2 -> 
+                [meta + meta2]
+        }
         .set { meta_federated }
 
 
@@ -52,9 +93,13 @@ workflow {
     // Load bin
     Channel
         .fromPath("${projectDir}/bin/*")
+        .filter { it.name != 'model.config' }
         .collect()
         .set { bin_ch }
-    
+
+
+
+
     // Prepare centralized training data
     training_data_ch.combine(meta_centralized)
         .map{ meta, data, meta2 -> 

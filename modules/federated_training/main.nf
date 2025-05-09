@@ -11,6 +11,7 @@ process FEDERATED_TRAINING {
     input:
     tuple val(meta), path(data)
     path(bin)
+    path(config)
 
     output:
     tuple val(meta), path("outputs/federated_outputs/*.json"), emit: metrics
