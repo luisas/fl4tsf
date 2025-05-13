@@ -76,17 +76,19 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     net.to(device)  # move model to GPU if available
     n_batches = len(trainloader)
     optimizer = optim.Adamax(net.parameters(), lr=lr)
-
     
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
         epoch_mse = []
-
+    
+    # Track the number of steps that the solver has taken
+    nodesolves = []
     trainloader = utils.inf_generator(trainloader)
     # So that we can use the same kl_coef for training and testing
-    global kl_coef
-    for itr in range(1, n_batches * (epochs + 1)):
+    global kl_coef 
+    kl_coef = 0.9
+    for itr in range(1, (n_batches * epochs) + 1):
         optimizer.zero_grad()
         utils.update_learning_rate(optimizer, decay_rate = 0.999, lowest = lr / 10)
         # wait_until_kl_inc = 10
@@ -95,7 +97,7 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         # else:
         #     kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
         batch_dict = utils.get_next_batch(trainloader)
-        train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = 0.9)
+        train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
  
         train_res["loss"].backward()
         optimizer.step()
@@ -105,18 +107,20 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         ce_loss = train_res["ce_loss"].item()
         kl_first_p = train_res["kl_first_p"].item()
         std_first_p = train_res["std_first_p"].item()
+        nodesolve = train_res["nodesolve"]
         running_loss += loss
+        nodesolves.append(nodesolve)
 
         if itr % n_batches == 0:
             if loss_per_epoch:
                 epoch_loss.append(loss)
                 epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
-
     avg_trainloss = running_loss/n_batches
+    print(nodesolves)
     if loss_per_epoch:
-        return avg_trainloss, epoch_loss, epoch_mse
-    return avg_trainloss, None, None
+        return avg_trainloss, epoch_loss, epoch_mse, sum(nodesolves)
+    return avg_trainloss, None, None, sum(nodesolves)
 
 def test(net, testloader, device):    
     """Validate the model on the test set."""

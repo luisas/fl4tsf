@@ -10,8 +10,24 @@ from flower.task import Net, create_run_dir, set_weights
 from flwr.common import logger, parameters_to_ndarrays
 from flwr.common.typing import UserConfig
 from flwr.server.strategy import FedAvg
+from functools import partial, reduce
+import numpy as np
+
+from flwr.common import (
+    NDArrays,
+    FitRes,
+    Parameters,
+    Scalar,
+    ndarrays_to_parameters
+)
+from flwr.server.client_proxy import ClientProxy
+from typing import Callable, Optional, Union
+from flwr.server.strategy.aggregate import aggregate
 
 PROJECT_NAME = "FLOWER-advanced-pytorch"
+
+
+
 
 
 class CustomFedAvg(FedAvg):
@@ -114,3 +130,79 @@ class CustomFedAvg(FedAvg):
             results_dict={"federated_evaluate_loss": loss, **metrics},
         )
         return loss, metrics
+    
+
+    #############################################################
+    # Update the aggregate function for the latent ODE model
+    #############################################################
+
+    def aggregate_fit(
+            self,
+            server_round: int,
+            results: list[tuple[ClientProxy, FitRes]],
+            failures: list[Union[tuple[ClientProxy, FitRes], BaseException]],
+        ) -> tuple[Optional[Parameters], dict[str, Scalar]]:
+        """Aggregate fit results using weighted average."""
+        if not results:
+            return None, {}
+        
+        weights_results = [
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
+            for _, fit_res in results
+        ]
+        parameters_aggregated = ndarrays_to_parameters(aggregate_ode(weights_results))
+        metrics_aggregated = {}
+        return parameters_aggregated, metrics_aggregated
+
+def aggregate_ode(results: list[tuple[NDArrays, int]]) -> NDArrays:
+    """Compute weighted average."""
+    # Calculate the total number of examples used during training
+    num_examples_total = sum(num_examples for (_, num_examples, _) in results)
+
+    # Results are a list of tuples (weights, num_examples)
+    # the length of results is the number of clients
+    # Each element of results is a tuple (weights, num_examples)
+    # Weights are a list of NDArrays
+
+
+    # # alpha controls balance between number of examples and ODE steps
+    alpha = 0.5
+
+    # Extract num_examples and num_steps from results
+    num_examples_list = [num_examples for _, num_examples, _ in results]
+    num_steps_list = [num_steps for _, _, num_steps in results]
+
+    # Total sums for normalization
+    total_examples = sum(num_examples_list)
+    total_steps = sum(num_steps_list)
+
+    # Compute lambda_k for each client
+    lambdas = [
+        alpha * (n / total_examples) + (1 - alpha) * (m / total_steps)
+        for n, m in zip(num_examples_list, num_steps_list)
+    ]
+
+    # Weighted model parameters using lambda_k
+    weighted_weights = [
+        [layer * lam for layer in weights]
+        for (weights, lam) in zip([r[0] for r in results], lambdas)
+    ]
+
+    # Aggregate across clients
+    weights_prime: NDArrays = [
+        reduce(np.add, layer_updates)
+        for layer_updates in zip(*weighted_weights)
+    ]
+
+
+    # # Create a list of weights, each multiplied by the related number of examples
+    # weighted_weights = [
+    #     [layer * num_examples for layer in weights] for weights, num_examples, _ in results
+    # ]
+
+    # # Compute average weights of each layer
+    # weights_prime: NDArrays = [
+    #     reduce(np.add, layer_updates) / num_examples_total
+    #     for layer_updates in zip(*weighted_weights)
+    # ]
+    return weights_prime

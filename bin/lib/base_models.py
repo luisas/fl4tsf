@@ -254,6 +254,7 @@ class VAE_Baseline(nn.Module):
 	def compute_all_losses(self, batch_dict, n_traj_samples = 1, kl_coef = 1.):
 		# Condition on subsampled points
 		# Make predictions for all the points
+
 		pred_y, info = self.get_reconstruction(batch_dict["tp_to_predict"], 
 			batch_dict["observed_data"], batch_dict["observed_tp"], 
 			mask = batch_dict["observed_mask"], n_traj_samples = n_traj_samples,
@@ -334,6 +335,7 @@ class VAE_Baseline(nn.Module):
 		results["ce_loss"] = torch.mean(ce_loss).detach()
 		results["kl_first_p"] =  torch.mean(kldiv_z0).detach()
 		results["std_first_p"] = torch.mean(fp_std).detach()
+		results["nodesolve"] = info["nodesolve"]
 
 		if batch_dict["labels"] is not None and self.use_binary_classif:
 			results["label_predictions"] = info["label_predictions"].detach()

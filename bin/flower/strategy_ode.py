@@ -7,22 +7,25 @@ from flwr.common import (
     FitRes,
     Parameters,
     Scalar,
+    NDArrays,
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
-
+from typing import Callable, Optional, Union
+from flwr.server.strategy import Strategy
+from flwr.server.strategy.aggregate import aggregate_inplace
 
 class FedCustom(Strategy):
     def __init__(
         self,
-        fraction_fit: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_fit_clients: int = 2,
-        min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
+        fraction_fit: float,
+        fraction_evaluate: float,
+        min_fit_clients: int,
+        min_evaluate_clients: int,
+        min_available_clients: int,
     ) -> None:
         super().__init__()
         self.fraction_fit = fraction_fit
@@ -32,20 +35,30 @@ class FedCustom(Strategy):
         self.min_available_clients = min_available_clients
 
     def __repr__(self) -> str:
-        return "FedCustom"
+        return "FedODE"
 
     def initialize_parameters(
         self, client_manager: ClientManager
     ) -> Optional[Parameters]:
-        """Initialize global model parameters."""
-        net = Net()
-        ndarrays = get_parameters(net)
-        return ndarrays_to_parameters(ndarrays)
+        """
+        Initialize global model parameters.
+        Note: This method is called only once at the beginning of training.
+        We currently set the weigths in the server_fn function.
+        So the initialization follows what is set in the latent ODE model.
+        """
+        initial_parameters = self.initial_parameters
+        self.initial_parameters = None  # Don't keep initial parameters in memory
+        return initial_parameters
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, FitIns]]:
+    ) -> list[tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
+        config = {}
+        if self.on_fit_config_fn is not None:
+            # Custom fit config function provided
+            config = self.on_fit_config_fn(server_round)
+        fit_ins = FitIns(parameters, config)
 
         # Sample clients
         sample_size, min_num_clients = self.num_fit_clients(
@@ -55,27 +68,32 @@ class FedCustom(Strategy):
             num_clients=sample_size, min_num_clients=min_num_clients
         )
 
-        # Create custom configs
-        n_clients = len(clients)
-        half_clients = n_clients // 2
-        standard_config = {"lr": 0.001}
-        higher_lr_config = {"lr": 0.003}
-        fit_configurations = []
-        for idx, client in enumerate(clients):
-            if idx < half_clients:
-                fit_configurations.append((client, FitIns(parameters, standard_config)))
-            else:
-                fit_configurations.append(
-                    (client, FitIns(parameters, higher_lr_config))
-                )
-        return fit_configurations
+        # Return client/config pairs
+        return [(client, fit_ins) for client in clients]
+
+    def aggregate_ode(results: list[tuple[NDArrays, int]]) -> NDArrays:
+        """Compute weighted average."""
+        # Calculate the total number of examples used during training
+        num_examples_total = sum(num_examples for (_, num_examples) in results)
+
+        # Create a list of weights, each multiplied by the related number of examples
+        weighted_weights = [
+            [layer * num_examples for layer in weights] for weights, num_examples in results
+        ]
+
+        # Compute average weights of each layer
+        weights_prime: NDArrays = [
+            reduce(np.add, layer_updates) / num_examples_total
+            for layer_updates in zip(*weighted_weights)
+        ]
+        return weights_prime
 
     def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+            self,
+            server_round: int,
+            results: list[tuple[ClientProxy, FitRes]],
+            failures: list[Union[tuple[ClientProxy, FitRes], BaseException]],
+        ) -> tuple[Optional[Parameters], dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
 
         weights_results = [
@@ -86,9 +104,10 @@ class FedCustom(Strategy):
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 
+
     def configure_evaluate(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+    ) -> list[tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         if self.fraction_evaluate == 0.0:
             return []

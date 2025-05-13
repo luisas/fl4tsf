@@ -14,10 +14,10 @@ workflow FEDERATED_LEARNING_SIMULATION{
 
     main:
 
-    cen_meta = centralized_data_and_params_ch.map{ meta, data -> meta}
-    PREP_CONFIG_CEN(cen_meta)
-    cen_model_config = PREP_CONFIG_CEN.out.config
-    CENTRALIZED_TRAINING(centralized_data_and_params_ch, cen_model_config )
+    // cen_meta = centralized_data_and_params_ch.map{ meta, data -> meta}
+    // PREP_CONFIG_CEN(cen_meta)
+    // cen_model_config = PREP_CONFIG_CEN.out.config
+    // CENTRALIZED_TRAINING(centralized_data_and_params_ch, cen_model_config )
 
     fed_meta = federated_data_and_params_ch.map{ meta, data -> meta}
     PREP_CONFIG_FED(fed_meta)

@@ -49,6 +49,8 @@ class LatentODE(VAE_Baseline):
 	def get_reconstruction(self, time_steps_to_predict, truth, truth_time_steps, 
 		mask = None, n_traj_samples = 1, run_backwards = True, mode = None):
 
+
+		
 		if isinstance(self.encoder_z0, Encoder_z0_ODE_RNN) or \
 			isinstance(self.encoder_z0, Encoder_z0_RNN):
 
@@ -81,10 +83,11 @@ class LatentODE(VAE_Baseline):
 		assert(not torch.isnan(first_point_enc).any())
 		assert(not torch.isnan(first_point_enc_aug).any())
 
+		# reset the number of steps in the ODE solver tracker
+		self.diffeq_solver.ode_func.nsteps = 0
 		# Shape of sol_y [n_traj_samples, n_samples, n_timepoints, n_latents]
 		sol_y = self.diffeq_solver(first_point_enc_aug, time_steps_to_predict)
 
-		
 		if self.use_poisson_proc:
 			sol_y, log_lambda_y, int_lambda, _ = self.diffeq_solver.ode_func.extract_poisson_rate(sol_y)
 
@@ -95,7 +98,8 @@ class LatentODE(VAE_Baseline):
 
 		all_extra_info = {
 			"first_point": (first_point_mu, first_point_std, first_point_enc),
-			"latent_traj": sol_y.detach()
+			"latent_traj": sol_y.detach(), 
+			"nodesolve": self.diffeq_solver.ode_func.nsteps
 		}
 
 		if self.use_poisson_proc:

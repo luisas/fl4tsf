@@ -70,7 +70,7 @@ def create_LatentODE_model(latents, poisson, units, gen_layers, rec_dims, rec_la
 
 		z0_diffeq_solver = DiffeqSolver(enc_input_dim, rec_ode_func, "euler", latents, 
 			odeint_rtol = 1e-3, odeint_atol = 1e-4, device = device)
-		
+				
 		encoder_z0 = Encoder_z0_ODE_RNN(n_rec_dims, enc_input_dim, z0_diffeq_solver, 
 			z0_dim = z0_dim, n_gru_units = gru_units, device = device).to(device)
 

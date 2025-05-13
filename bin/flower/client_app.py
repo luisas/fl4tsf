@@ -48,7 +48,7 @@ class FlowerClient(NumPyClient):
         #self._load_layer_weights_from_state()
 
 
-        train_loss, epoch_loss, epoch_mse = train(
+        train_loss, epoch_loss, epoch_mse, nodesolve = train(
             self.net,
             self.trainloader,
             self.local_epochs,
@@ -71,7 +71,7 @@ class FlowerClient(NumPyClient):
         return (
             get_weights(self.net),
             len(self.trainloader.dataset),
-            {"train_loss": train_loss},
+            {"train_loss": train_loss,  "nodesolve": nodesolve}
         )
     # def _save_layer_weights_to_state(self):
     #     """Save last layer weights to state."""
