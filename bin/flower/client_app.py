@@ -5,7 +5,8 @@ from flower.task import Net, get_weights, load_data, set_weights, test, train
 
 from flwr.client import ClientApp, NumPyClient
 from flwr.common import Array, ArrayRecord, Context, RecordDict
-
+import os
+import json
 
 # Define Flower Client and client_fn
 class FlowerClient(NumPyClient):
@@ -17,7 +18,7 @@ class FlowerClient(NumPyClient):
     """
 
     def __init__(
-        self, net, client_state: RecordDict, trainloader, valloader, local_epochs
+        self, net, client_state: RecordDict, trainloader, valloader, local_epochs, num_client=None, round = 0 
     ):
         self.net: Net = net
         self.client_state = client_state
@@ -27,6 +28,9 @@ class FlowerClient(NumPyClient):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.net.to(self.device)
         self.local_layer_name = "classification-head"
+        self.num_client = num_client
+        self.round = 0
+        self.results = {}
 
     def fit(self, parameters, config):
         """Train model locally.
@@ -43,15 +47,23 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         #self._load_layer_weights_from_state()
 
-        train_loss = train(
+
+        train_loss, epoch_loss, epoch_mse = train(
             self.net,
             self.trainloader,
             self.local_epochs,
             lr=float(config["lr"]),
             device=self.device,
-            loss_per_epoch=False,
+            loss_per_epoch=True,
 
         )
+
+        self._store_results(
+            tag="client_train",
+            client=self.num_client,
+            results_dict={"loss": epoch_loss},
+        )
+
         # Save classification head to context's state to use in a future fit() call
         # self._save_layer_weights_to_state()
 
@@ -77,6 +89,33 @@ class FlowerClient(NumPyClient):
 
     #     # apply previously saved classification head by this client
     #     self.net.decoder.load_state_dict(state_dict, strict=True)
+
+
+    def _store_results(self, tag: str, client, results_dict):
+        """Store results in JSON file, with automatic round tracking."""
+        filename = f"federated_outputs/results_{client}.json"
+
+        # Load existing results from disk if file exists
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as fp:
+                results = json.load(fp)
+        else:
+            results = {}
+
+        # Compute the round number
+        round_number = len(results.get(tag, []))
+        results_dict["round"] = round_number
+
+        # Update results
+        if tag in results:
+            results[tag].append(results_dict)
+        else:
+            results[tag] = [results_dict]
+
+        # Save updated results to disk
+        with open(filename, "w", encoding="utf-8") as fp:
+            json.dump(results, fp, indent=2)
+
 
     def evaluate(self, parameters, config):
         """Evaluate the global model on the local validation set.
@@ -106,8 +145,9 @@ def client_fn(context: Context):
     # participation rounds. Note that each client always
     # receives the same Context instance (it's a 1:1 mapping)
     client_state = context.state
+
     return FlowerClient(
-        net, client_state, trainloader,valloader, local_epochs
+        net, client_state, trainloader,valloader, local_epochs, partition_id
     ).to_client()
 
 

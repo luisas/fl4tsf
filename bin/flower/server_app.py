@@ -72,11 +72,8 @@ def server_fn(context: Context):
 
     dataset_name = model_config["dataset_name"]
     sample_tp = float(model_config["sample_tp"])
-    cut_tp = model_config["cut_tp"]
-    if cut_tp != "None" and cut_tp != None:
-        cut_tp = float(cut_tp)
-    else:
-        cut_tp = None 
+    cut_tp = None
+    extrap = False
     batch_size = int(model_config["batch_size"])
     extrap = bool(model_config["extrap"])
     data_folder = model_config["data_folder"]

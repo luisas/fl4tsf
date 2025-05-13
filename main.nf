@@ -17,10 +17,11 @@ workflow {
     Channel
         .of([
                 [id: "${params.dataset}",
-                data_folder: "${params.dataset}", 
-                epochs: "${params.epochs}", 
-                lr: "${params.lr}", 
-                batch_size: "${params.batch_size}", 
+                dataset_name: "${params.dataset}",
+                data_folder: ".", 
+                epochs: "${params.epochs}",
+                lr: "${params.lr}",
+                batch_size: "${params.batch_size}",
                 sample_tp: "${params.sample_tp}",
                 cut_tp: "${params.cut_tp}",
                 extrap: "${params.extrap}"]
@@ -92,8 +93,8 @@ workflow {
 
     // Load bin
     Channel
-        .fromPath("${projectDir}/bin/*")
-        .filter { it.name != 'model.config' }
+        .fromPath("${projectDir}/bin/*", type: 'any')
+        .filter { it.name != 'model.config' && it.name != '__pycache__' && it.name != 'federated_outputs' }
         .collect()
         .set { bin_ch }
 

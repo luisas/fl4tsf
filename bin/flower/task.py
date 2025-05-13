@@ -69,6 +69,7 @@ def Net():
                                     n_labels = n_labels)
     return model
 
+kl_coef = 0.0
 
 def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     """Train the model on the training set."""
@@ -76,22 +77,26 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     n_batches = len(trainloader)
     optimizer = optim.Adamax(net.parameters(), lr=lr)
 
+    
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
         epoch_mse = []
 
-    trainloader = utils.inf_generator(trainloader) 
+    trainloader = utils.inf_generator(trainloader)
+    # So that we can use the same kl_coef for training and testing
+    global kl_coef
     for itr in range(1, n_batches * (epochs + 1)):
         optimizer.zero_grad()
         utils.update_learning_rate(optimizer, decay_rate = 0.999, lowest = lr / 10)
-        wait_until_kl_inc = 10
-        if itr // n_batches < wait_until_kl_inc:
-            kl_coef = 0.
-        else:
-            kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
+        # wait_until_kl_inc = 10
+        # if itr // n_batches < wait_until_kl_inc:
+        #     kl_coef = 0.
+        # else:
+        #     kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
         batch_dict = utils.get_next_batch(trainloader)
-        train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
+        train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = 0.9)
+ 
         train_res["loss"].backward()
         optimizer.step()
         loss = train_res["loss"].item()
@@ -104,14 +109,14 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
 
         if itr % n_batches == 0:
             if loss_per_epoch:
-                epoch_loss.append(train_res["loss"].item())
-                epoch_mse.append(train_res["mse"].item())
+                epoch_loss.append(loss)
+                epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
 
     avg_trainloss = running_loss/n_batches
     if loss_per_epoch:
-        return epoch_loss, epoch_mse
-    return avg_trainloss
+        return avg_trainloss, epoch_loss, epoch_mse
+    return avg_trainloss, None, None
 
 def test(net, testloader, device):    
     """Validate the model on the test set."""
@@ -121,7 +126,7 @@ def test(net, testloader, device):
     with torch.no_grad():
         for itr in range(1,n_batches+1):
             batch_dict = utils.get_next_batch(testloader)
-            test_res = net.compute_all_losses(batch_dict, n_traj_samples = 1, kl_coef = 0.1)
+            test_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
             loss = test_res["loss"].item()
             mse = test_res["mse"].item()
     loss = loss / n_batches
@@ -160,12 +165,8 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
         model_config = get_model_config(file_path="model.config")
         dataset_name = model_config["dataset_name"]
         sample_tp = float(model_config["sample_tp"])
-        cut_tp = model_config["cut_tp"]
-        if cut_tp != "None" and cut_tp != None:
-            cut_tp = float(cut_tp)
-        else:
-            cut_tp = None
-        extrap = bool(model_config["extrap"])
+        cut_tp = None
+        extrap = False
         data_folder = model_config["data_folder"]
         dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
 

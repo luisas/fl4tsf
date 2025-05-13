@@ -15,7 +15,7 @@ def get_parameters():
     parser.add_argument('--dataset', type=str, default="periodic", help='Dataset name')
     parser.add_argument('--sample_tp', type=float, default=0.5, help='Sample time period')
     parser.add_argument('--batch_size', type=int, default=50, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=1, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--dataset_name', type=str, default=None, help='Dataset name')
     parser.add_argument('--output_dir', type=str, default=".", help='Output directory')
@@ -45,9 +45,9 @@ print(f"Using device: {device}")
 # Initialize model and load data
 model = Net()
 
-train_dataset     = torch.load(f"{dataset_name}_train.pt", weights_only=True)
-time_steps_extrap = torch.load(f"{dataset_name}_time_steps.pt", weights_only=True)
-test_dataset      = torch.load(f"{dataset_name}_test.pt", weights_only=True)
+train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=True)
+time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps.pt", weights_only=True)
+test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=True)
 
 # train dataset 
 
@@ -75,9 +75,8 @@ torch.save(model.state_dict(), "model.pth")
 # # Store files
 # #######################################
 
-epoch_loss, mse_loss = loss_training
+avg_loss, epoch_loss, mse_loss = loss_training
 df = pd.DataFrame({"loss": epoch_loss, "mse": mse_loss})
-
 
 # if output_dir does not exist, create it
 if not os.path.exists(args.output_dir):

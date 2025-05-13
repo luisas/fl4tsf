@@ -69,12 +69,12 @@ class CustomFedAvg(FedAvg):
             # Instead we are going to apply them to a PyTorch
             # model and save the state dict.
             # Converts flwr.common.Parameters to ndarrays
-            ndarrays = parameters_to_ndarrays(parameters)
-            model = Net()
-            set_weights(model, ndarrays)
-            # Save the PyTorch model
-            file_name = f"model.pth"
-            torch.save(model.state_dict(), self.save_path / file_name)
+        ndarrays = parameters_to_ndarrays(parameters)
+        model = Net()
+        set_weights(model, ndarrays)
+        # Save the PyTorch model
+        file_name = f"model.pth"
+        torch.save(model.state_dict(), self.save_path / file_name)
 
     def store_results_and_log(self, server_round: int, tag: str, results_dict):
         """A helper method that stores results and logs them to W&B if enabled."""
