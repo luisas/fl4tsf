@@ -75,7 +75,9 @@ torch.save(model.state_dict(), "model.pth")
 # # Store files
 # #######################################
 
-avg_loss, epoch_loss, mse_loss, _ = loss_training
+avg_loss, _, metric_dict = loss_training
+epoch_loss = metric_dict["epoch_loss"]
+mse_loss = metric_dict["epoch_mse"]
 df = pd.DataFrame({"loss": epoch_loss, "mse": mse_loss})
 
 # if output_dir does not exist, create it

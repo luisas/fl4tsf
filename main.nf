@@ -21,6 +21,11 @@ workflow {
     def serverrounds    = "${params.serverrounds}".split(",")
     def aggregation     = "${params.aggregation}".split(",")
     def alpha           = "${params.alpha}".split(",")
+    def clients         = "${params.clients}".split(",")
+
+
+    // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
+    def replicate       = (1..Integer.parseInt("${params.replicate}")).collect { it.toString() }
 
 
 
@@ -81,8 +86,10 @@ workflow {
         .of(serverrounds)
         .combine(Channel.from(aggregation))
         .combine(Channel.from(alpha))
+        .combine(Channel.from(clients))
+        .combine(Channel.from(replicate))
         .map({
-                sr, ag, alpha_val->
+                sr, ag, alpha_val, cl, rep->
                 [
                 obsrv_std: "${params.obsrv_std}", 
                 serverrounds: sr, 
@@ -91,10 +98,11 @@ workflow {
                 localepochs: "${params.localepochs}", 
                 numsupernodes: "${params.numsupernodes}", 
                 aggregation: ag, 
-                alpha: alpha_val]
+                alpha: alpha_val, 
+                clients: cl, 
+                replicate: rep]
             })
         .set { meta_federated }
-
 
     meta_general
         .combine(meta_model_params)
@@ -111,6 +119,8 @@ workflow {
                 [meta + meta2 + meta3]
         }
         .set { meta_federated }
+    
+    meta_federated.view()
 
     // Load dataset 
     Channel

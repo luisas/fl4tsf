@@ -36,8 +36,8 @@ process FEDERATED_TRAINING {
                     fraction-fit=${meta.fractionfit} \
                     fraction-evaluate=${meta.fractionevaluate} \
                     local-epochs=${meta.localepochs} \
-                    batch-size=${meta.batch_size}\ 
-                    learning-rate=${meta.lr} " 
+                    batch-size=${meta.batch_size} \ 
+                    learning-rate=${meta.lr}  " 
 
     # Store a file with all the meta 
     # data in the current directory

@@ -1,4 +1,4 @@
-flwr run . --run-config "num-server-rounds=2 \
+flwr run . --run-config "num-server-rounds=5 \
                 fraction-fit=1 \
                 fraction-evaluate=1 \
                 local-epochs=2 \

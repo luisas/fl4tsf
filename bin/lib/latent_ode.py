@@ -84,7 +84,7 @@ class LatentODE(VAE_Baseline):
 		assert(not torch.isnan(first_point_enc_aug).any())
 
 		# reset the number of steps in the ODE solver tracker
-		self.diffeq_solver.ode_func.nsteps = 0
+		# self.diffeq_solver.ode_func.nsteps = 0
 		# Shape of sol_y [n_traj_samples, n_samples, n_timepoints, n_latents]
 		sol_y = self.diffeq_solver(first_point_enc_aug, time_steps_to_predict)
 

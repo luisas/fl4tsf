@@ -117,10 +117,17 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
                 epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
     avg_trainloss = running_loss/n_batches
+
+
     print(nodesolves)
+    dict_metrics = {
+        "epoch_loss": epoch_loss,
+        "epoch_mse": epoch_mse,
+        "nodesolves": nodesolves
+    }
     if loss_per_epoch:
-        return avg_trainloss, epoch_loss, epoch_mse, sum(nodesolves)
-    return avg_trainloss, None, None, sum(nodesolves)
+        return avg_trainloss, sum(nodesolves), dict_metrics
+    return avg_trainloss, sum(nodesolves), dict_metrics
 
 def test(net, testloader, device):    
     """Validate the model on the test set."""

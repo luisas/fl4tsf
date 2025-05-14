@@ -48,7 +48,7 @@ class FlowerClient(NumPyClient):
         #self._load_layer_weights_from_state()
 
 
-        train_loss, epoch_loss, epoch_mse, nodesolve = train(
+        train_loss, nodesolve, metric_dict = train(
             self.net,
             self.trainloader,
             self.local_epochs,
@@ -57,11 +57,14 @@ class FlowerClient(NumPyClient):
             loss_per_epoch=True,
 
         )
+        epoch_loss = metric_dict["epoch_loss"]
+        epoch_mse = metric_dict["epoch_mse"]
+        nodesolves = metric_dict["nodesolves"]
 
         self._store_results(
             tag="client_train",
             client=self.num_client,
-            results_dict={"loss": epoch_loss},
+            results_dict={"loss": epoch_loss, "mse": epoch_mse, "nodesolve": nodesolves},
         )
 
         # Save classification head to context's state to use in a future fit() call
