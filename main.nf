@@ -61,7 +61,8 @@ workflow {
                 fractionfit: "${params.fractionfit}", 
                 fractionevaluate: "${params.fractionevaluate}", 
                 localepochs: "${params.localepochs}", 
-                numsupernodes: "${params.numsupernodes}"]
+                numsupernodes: "${params.numsupernodes}", 
+                aggregation: "${params.aggregation}"]
         ])
         .set { meta_federated }
 

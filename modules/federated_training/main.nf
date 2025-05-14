@@ -1,6 +1,6 @@
 
 process FEDERATED_TRAINING {
-    tag "$meta.id"
+    tag "$meta.id - ${meta.aggregation}"
     label 'process_low'
     
 
