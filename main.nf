@@ -12,22 +12,47 @@ workflow {
 
     main:
 
+    // Take a param epochs and split it with a comma
+    // These are the only parameters that we can run multiple values of
+    // The rest of the parameters are set to a single value in the config file
+    def epochs          = "${params.epochs}".split(",")
+    def lr              = "${params.lr}".split(",")
+    def batch_size      = "${params.batch_size}".split(",")
+    def serverrounds    = "${params.serverrounds}".split(",")
+    def aggregation     = "${params.aggregation}".split(",")
+    def alpha           = "${params.alpha}".split(",")
 
-    // Centralized meta channel
+
+
+    // General parameters 
     Channel
-        .of([
-                [id: "${params.dataset}",
-                dataset_name: "${params.dataset}",
-                data_folder: ".", 
-                epochs: "${params.epochs}",
-                lr: "${params.lr}",
-                batch_size: "${params.batch_size}",
-                sample_tp: "${params.sample_tp}",
-                cut_tp: "${params.cut_tp}",
-                extrap: "${params.extrap}"]
-        ])
-        .set { meta_centralized }
+        .of(lr)
+        .combine(Channel.from(batch_size))
+        .map{
+            lr_val, bs ->
+                [
+                    id          : "${params.dataset}",
+                    dataset_name: "${params.dataset}",
+                    data_folder : ".", 
+                    lr          : lr_val,
+                    batch_size  : bs,
+                    sample_tp   : "${params.sample_tp}",
+                    cut_tp      : "${params.cut_tp}",
+                    extrap      : "${params.extrap}"
+                ]
+        }.set { meta_general }
 
+
+    // Create cross product of epochs and lr
+    Channel
+        .from(epochs)
+        .map { epoch ->
+            [
+                epochs      : epoch
+            ]
+        }
+        .set { meta_centralized }
+    
 
     // Model parameters
     Channel
@@ -51,37 +76,40 @@ workflow {
         .set { meta_model_params }
 
 
-
     // Federated meta channel
     Channel
-        .of([
+        .of(serverrounds)
+        .combine(Channel.from(aggregation))
+        .combine(Channel.from(alpha))
+        .map({
+                sr, ag, alpha_val->
                 [
                 obsrv_std: "${params.obsrv_std}", 
-                serverrounds: "${params.serverrounds}", 
+                serverrounds: sr, 
                 fractionfit: "${params.fractionfit}", 
                 fractionevaluate: "${params.fractionevaluate}", 
                 localepochs: "${params.localepochs}", 
                 numsupernodes: "${params.numsupernodes}", 
-                aggregation: "${params.aggregation}"]
-        ])
+                aggregation: ag, 
+                alpha: alpha_val]
+            })
         .set { meta_federated }
 
 
-    meta_centralized 
+    meta_general
         .combine(meta_model_params)
-        .map{ meta, meta2 -> 
-                [meta + meta2]
+        .combine(meta_centralized)
+        .map{ meta, meta2, meta3 -> 
+                [meta + meta2 + meta3]
         }
         .set { meta_centralized }
     
-    meta_centralized
+    meta_general
         .combine(meta_federated)
         .map{ meta, meta2 -> 
                 [meta + meta2]
         }
         .set { meta_federated }
-
-
 
     // Load dataset 
     Channel
@@ -98,8 +126,6 @@ workflow {
         .filter { it.name != 'model.config' && it.name != '__pycache__' && it.name != 'federated_outputs' }
         .collect()
         .set { bin_ch }
-
-
 
 
     // Prepare centralized training data
