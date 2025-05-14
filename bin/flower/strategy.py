@@ -12,6 +12,7 @@ from flwr.common.typing import UserConfig
 from flwr.server.strategy import FedAvg
 from functools import partial, reduce
 import numpy as np
+from flower.model_config import get_model_config
 
 from flwr.common import (
     NDArrays,
@@ -27,9 +28,6 @@ from flwr.server.strategy.aggregate import aggregate
 PROJECT_NAME = "FLOWER-advanced-pytorch"
 
 
-
-
-
 class CustomFedAvg(FedAvg):
     """A class that behaves like FedAvg but has extra functionality.
 
@@ -43,6 +41,8 @@ class CustomFedAvg(FedAvg):
 
         # Create a directory where to save results from this run
         self.save_path, self.run_dir = create_run_dir(run_config)
+        self.aggregate_fun_name = get_model_config(file_path="model.config")["aggregation"]
+        self.alpha = float(get_model_config(file_path="model.config")["alpha"])
         self.use_wandb = use_wandb
         # Initialise W&B if set
         if use_wandb:
@@ -150,11 +150,21 @@ class CustomFedAvg(FedAvg):
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
             for _, fit_res in results
         ]
-        parameters_aggregated = ndarrays_to_parameters(aggregate_ode(weights_results))
+
+        if(self.aggregate_fun_name == "FedAvg"):
+            # Aggregate using average
+            parameters_aggregated = aggregate_avg(weights_results)
+        elif(self.aggregate_fun_name == "FedODE"):
+            # Aggregate using ODE
+            parameters_aggregated = aggregate_ode(weights_results, self.alpha)
+        else:
+            raise ValueError(f"Unknown aggregation function: {self.aggregate_fun_name}")    
+           
+        parameters_aggregated = ndarrays_to_parameters(parameters_aggregated)
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 
-def aggregate_ode(results: list[tuple[NDArrays, int]]) -> NDArrays:
+def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
     """Compute weighted average."""
     # Calculate the total number of examples used during training
     num_examples_total = sum(num_examples for (_, num_examples, _) in results)
@@ -166,8 +176,7 @@ def aggregate_ode(results: list[tuple[NDArrays, int]]) -> NDArrays:
 
 
     # # alpha controls balance between number of examples and ODE steps
-    alpha = 0.5
-
+    
     # Extract num_examples and num_steps from results
     num_examples_list = [num_examples for _, num_examples, _ in results]
     num_steps_list = [num_steps for _, _, num_steps in results]

@@ -21,12 +21,15 @@ process FEDERATED_TRAINING {
     output:
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
+    path(meta.csv)                                   , emit: meta_csv
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args = task.ext.args ?: ''
+    def keys = meta.keySet().join(",")
+    def values = meta.values().join(",")
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
     flwr run . --run-config "num-server-rounds=${meta.serverrounds} \
@@ -35,5 +38,10 @@ process FEDERATED_TRAINING {
                     local-epochs=${meta.localepochs} \
                     batch-size=${meta.batch_size}\ 
                     learning-rate=${meta.lr} " 
+
+    # Store a file with all the meta 
+    # data in the current directory
+    echo "$keys" > meta.csv
+    echo "$values" >> meta.csv
     """
 }

@@ -16,12 +16,15 @@ process CENTRALIZED_TRAINING {
     output:
     tuple val(meta), path("*.csv"), emit: metrics
     tuple val(meta), path("*.pth"), emit: model
+    path(meta.csv)                , emit: meta_csv
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args = task.ext.args ?: ''
+    def keys = meta.keySet().join(",")
+    def values = meta.values().join(",")
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
     centralized_train.py --epochs ${meta.epochs} \\
@@ -29,5 +32,9 @@ process CENTRALIZED_TRAINING {
                          --batch_size ${meta.batch_size} \\
                          --dataset ${meta.id} \\
                          --sample_tp ${meta.sample_tp}
+
+    # data in the current directory
+    echo "$keys" > meta.csv
+    echo "$values" >> meta.csv
     """
 }

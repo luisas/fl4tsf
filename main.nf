@@ -105,9 +105,10 @@ workflow {
         .set { meta_centralized }
     
     meta_general
+        .combine(meta_model_params)
         .combine(meta_federated)
-        .map{ meta, meta2 -> 
-                [meta + meta2]
+        .map{ meta, meta2, meta3 -> 
+                [meta + meta2 + meta3]
         }
         .set { meta_federated }
 

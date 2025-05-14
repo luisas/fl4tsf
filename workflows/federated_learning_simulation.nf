@@ -21,7 +21,7 @@ workflow FEDERATED_LEARNING_SIMULATION{
 
     fed_meta = federated_data_and_params_ch.map{ meta, data -> meta}
     PREP_CONFIG_FED(fed_meta)
-    // fed_model_config = PREP_CONFIG_FED.out.config
-    // FEDERATED_TRAINING(federated_data_and_params_ch, bin, fed_model_config)
+    fed_model_config = PREP_CONFIG_FED.out.config
+    FEDERATED_TRAINING(federated_data_and_params_ch, bin, fed_model_config)
 
 }
