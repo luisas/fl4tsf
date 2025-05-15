@@ -97,6 +97,7 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         # else:
         #     kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
         batch_dict = utils.get_next_batch(trainloader)
+
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
  
         train_res["loss"].backward()
