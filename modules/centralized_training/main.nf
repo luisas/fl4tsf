@@ -16,7 +16,7 @@ process CENTRALIZED_TRAINING {
     output:
     tuple val(meta), path("*.csv"), emit: metrics
     tuple val(meta), path("*.pth"), emit: model
-    path(meta.csv)                , emit: meta_csv
+    path("meta.csv")                , emit: meta_csv
 
     when:
     task.ext.when == null || task.ext.when

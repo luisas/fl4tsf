@@ -1,9 +1,7 @@
 
 process FEDERATED_TRAINING {
     tag "$meta.id - ${meta.aggregation}"
-    label 'process_low'
     
-
     // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
     //     'oras://community.wave.seqera.io/library/pip_flwr-datasets_flwr_matplotlib_pruned:c1a4d380c9f71c94' :
     //     'community.wave.seqera.io/library/pip_flwr-datasets_flwr_numpy_pruned:37e97d65f19bcbe8' }"
@@ -21,7 +19,7 @@ process FEDERATED_TRAINING {
     output:
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
-    path(meta.csv)                                   , emit: meta_csv
+    path("federated_outputs/meta.csv")               , emit: meta_csv
 
     when:
     task.ext.when == null || task.ext.when
@@ -32,6 +30,11 @@ process FEDERATED_TRAINING {
     def values = meta.values().join(",")
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
+    mkdir -p /tmp/ray_tmp
+    # create unique nr 
+    export PYTHONUNBUFFERED=1
+    export RAY_TMPDIR="/tmp/ray_tmp"
+    export RAY_SOCKET_DIR="\${RAY_TMPDIR}/s" 
     flwr run . --run-config "num-server-rounds=${meta.serverrounds} \
                     fraction-fit=${meta.fractionfit} \
                     fraction-evaluate=${meta.fractionevaluate} \
@@ -43,5 +46,6 @@ process FEDERATED_TRAINING {
     # data in the current directory
     echo "$keys" > meta.csv
     echo "$values" >> meta.csv
+    mv meta.csv federated_outputs/meta.csv
     """
 }

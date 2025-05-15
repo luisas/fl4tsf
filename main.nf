@@ -120,7 +120,6 @@ workflow {
         }
         .set { meta_federated }
     
-    meta_federated.view()
 
     // Load dataset 
     Channel
