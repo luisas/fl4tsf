@@ -54,21 +54,26 @@ def weighted_average(metrics):
     return {"federated_evaluate_accuracy": sum(accuracies) / sum(examples)}
 
 
-def server_fn(context: Context):
+def server_fn(context: Context, nrounds: int = 4):
     # Read from config
-    num_rounds = context.run_config["num-server-rounds"]
-    fraction_fit = context.run_config["fraction-fit"]
-    fraction_eval = context.run_config["fraction-evaluate"]
-    server_device = context.run_config["server-device"]
+    model_config = get_model_config(file_path="model.config")
+
+    num_rounds = int(model_config["serverrounds"])
+    fraction_fit = float(model_config["fractionfit"])
+    fraction_eval = float(model_config["fractionevaluate"])
+    server_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    run_config = {
+        "num-server-rounds": num_rounds,
+        "fraction-fit": fraction_fit,
+        "fraction-evaluate": fraction_eval
+    }
 
     # Initialize model parameters
     ndarrays = get_weights(Net())
     parameters = ndarrays_to_parameters(ndarrays)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # read them in from model.config
-    model_config = get_model_config(file_path="model.config")
+    
 
     dataset_name = model_config["dataset_name"]
     sample_tp = float(model_config["sample_tp"])
@@ -85,8 +90,8 @@ def server_fn(context: Context):
 
     # Define strategy
     strategy = CustomFedAvg(
-        run_config=context.run_config,
-        use_wandb=context.run_config["use-wandb"],
+        run_config=run_config,
+        use_wandb=model_config["use_wandb"],
         fraction_fit=fraction_fit,
         fraction_evaluate=fraction_eval,
         initial_parameters=parameters,
@@ -100,4 +105,4 @@ def server_fn(context: Context):
 
 
 # Create ServerApp
-app = ServerApp(server_fn=server_fn)
+#app = ServerApp(server_fn=server_fn)

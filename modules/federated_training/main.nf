@@ -33,17 +33,23 @@ process FEDERATED_TRAINING {
     mkdir -p /tmp/ray_tmp
     # create unique nr 
     export PYTHONUNBUFFERED=1
-    export RAY_TMPDIR="/tmp/ray_tmp"
-    export RAY_SOCKET_DIR="\${RAY_TMPDIR}/s" 
-    flwr run . --run-config "num-server-rounds=${meta.serverrounds} \
-                    fraction-fit=${meta.fractionfit} \
-                    fraction-evaluate=${meta.fractionevaluate} \
-                    local-epochs=${meta.localepochs} \
-                    batch-size=${meta.batch_size} \ 
-                    learning-rate=${meta.lr}  " 
 
-    # Store a file with all the meta 
-    # data in the current directory
+    # Setup Ray environment
+    export RAY_TMPDIR="/tmp/ray_tmp_luisa/"
+    export RAY_object_store_memory=10737418240
+
+    # Create the directory first
+    mkdir -p "\${RAY_TMPDIR}"
+    mkdir -p "\${RAY_TMPDIR}/s"
+
+    # Export the variables for the Python script
+    export RAY_TMPDIR="\${RAY_TMPDIR}"
+    export RAY_SOCKET_DIR="\${RAY_TMPDIR}/s"
+
+    # Run the Python script
+    python main.py
+
+    # Store a file with all the meta information
     echo "$keys" > meta.csv
     echo "$values" >> meta.csv
     mv meta.csv federated_outputs/meta.csv

@@ -7,6 +7,8 @@ from flwr.client import ClientApp, NumPyClient
 from flwr.common import Array, ArrayRecord, Context, RecordDict
 import os
 import json
+from flower.model_config import get_model_config
+
 
 # Define Flower Client and client_fn
 class FlowerClient(NumPyClient):
@@ -136,12 +138,13 @@ class FlowerClient(NumPyClient):
 
 def client_fn(context: Context):
     # Load model and data
+    model_config = get_model_config(file_path="model.config")
     net = Net()
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    batch_size = context.run_config["batch-size"]
+    batch_size = int(model_config["batch_size"])
     trainloader, valloader = load_data(partition_id, num_partitions, batch_size)
-    local_epochs = context.run_config["local-epochs"]
+    local_epochs = int(model_config["localepochs"])
 
     # Return Client instance
     # We pass the state to persist information across
@@ -155,8 +158,8 @@ def client_fn(context: Context):
 
 
 # Flower ClientApp
-app = ClientApp(
-    client_fn,
-)
+# app = ClientApp(
+#     client_fn,
+# )
 
 

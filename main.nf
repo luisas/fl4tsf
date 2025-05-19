@@ -100,7 +100,8 @@ workflow {
                 aggregation: ag, 
                 alpha: alpha_val, 
                 clients: cl, 
-                replicate: rep]
+                replicate: rep, 
+                use_wandb: "${params.use_wandb}",]
             })
         .set { meta_federated }
 
