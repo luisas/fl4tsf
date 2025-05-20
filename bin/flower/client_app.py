@@ -62,11 +62,13 @@ class FlowerClient(NumPyClient):
         epoch_loss = metric_dict["epoch_loss"]
         epoch_mse = metric_dict["epoch_mse"]
         nodesolves = metric_dict["nodesolves"]
+        weights = metric_dict["weights"]
+        grad_norms = metric_dict["grad_norms"]
 
         self._store_results(
             tag="client_train",
             client=self.num_client,
-            results_dict={"loss": epoch_loss, "mse": epoch_mse, "nodesolve": nodesolves},
+            results_dict={"loss": epoch_loss, "mse": epoch_mse, "nodesolve": nodesolves, "weights": weights, "grad_norms": grad_norms},
         )
 
         # Save classification head to context's state to use in a future fit() call

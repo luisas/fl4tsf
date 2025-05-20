@@ -15,11 +15,7 @@ from flwr.simulation import run_simulation
 from flwr.common import Config
 
 
-
-
 DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
-NUM_PARTITIONS = 2
-BATCH_SIZE = 32
 
 
 def main():

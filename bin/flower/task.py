@@ -101,6 +101,17 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
  
         train_res["loss"].backward()
+
+        grad_norms = []
+        for name, param in net.named_parameters():
+            if param.grad is not None:
+                grad_norm = param.grad.data.norm(2).item()
+                grad_norms.append((name, grad_norm))
+        
+        # gradient clipping to avoid vanishing/exploding gradients
+        torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+
+
         optimizer.step()
         loss = train_res["loss"].item()
         mse = train_res["mse"].item()
@@ -117,14 +128,23 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
                 epoch_loss.append(loss)
                 epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
+            # store the weights of the model
+
     avg_trainloss = running_loss/n_batches
 
-
-    print(nodesolves)
+    # print weights
+    w = get_weights(net)
+    # store them 
+    random_id = str(int(torch.randint(0, 1000000, (1,)).item()))
+    file_store = f"weights_{random_id}.pt"
+    torch.save(w, file_store)
+    
     dict_metrics = {
         "epoch_loss": epoch_loss,
         "epoch_mse": epoch_mse,
-        "nodesolves": nodesolves
+        "nodesolves": nodesolves,
+        "weights": file_store,
+        "grad_norms": grad_norms,
     }
     if loss_per_epoch:
         return avg_trainloss, sum(nodesolves), dict_metrics
