@@ -18,11 +18,11 @@ from flwr.common import Config
 DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
 
 
-def main():
+def main(ncpus = 2):
     
     print("Starting Flower server...")
 
-    cpus_for_this_ray_instance = 2
+    cpus_for_this_ray_instance = ncpus
 
     # Check RAY_TMPDIR environment variable
     ray_tmpdir = os.environ.get("RAY_TMPDIR", "Not set")
@@ -33,7 +33,7 @@ def main():
         logging_level=logging.INFO,
         include_dashboard=False,
         num_cpus=cpus_for_this_ray_instance,
-        num_gpus=1,
+        num_gpus=0,
         _plasma_directory=ray_socket_dir,  # Use the very short socket directory
         _temp_dir=ray_tmpdir,  # Use the main temporary directory
         _enable_object_reconstruction=True,
@@ -43,8 +43,8 @@ def main():
     server = ServerApp(server_fn=server_fn )
 
     backend_config = {"client_resources": None}
-    if DEVICE.type == "cuda":
-        backend_config = {"client_resources": {"num_gpus": 1}}
+    # if DEVICE.type == "cuda":
+    #     backend_config = {"client_resources": {"num_gpus": 1}}
 
     run_simulation(
         server_app=server,
@@ -60,4 +60,14 @@ def main():
 
 if __name__ == "__main__": 
     print("Starting the script ...")
-    main()
+    # parser for ncpus
+    parser = argparse.ArgumentParser(description="Flower server")
+    parser.add_argument(
+        "--ncpus",
+        type=int,
+        default=2,
+        help="Number of CPUs to use for the server",
+    )
+
+    args = parser.parse_args()
+    main(args.ncpus)

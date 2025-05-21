@@ -47,5 +47,5 @@ if __name__ == "__main__":
 	args.timepoints = 100
 	args.max_t = 5.
 	args.noise_weight = 0.01
-	args.n = 1000
+	args.n = 2000
 	store_periodic_dataset(args)

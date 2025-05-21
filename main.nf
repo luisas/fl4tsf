@@ -22,6 +22,8 @@ workflow {
     def aggregation     = "${params.aggregation}".split(",")
     def alpha           = "${params.alpha}".split(",")
     def clients         = "${params.clients}".split(",")
+    def clipping        = "${params.gradient_clipping}".split(",")
+    def lrdecay         = "${params.lrdecay}".split(",")
 
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
@@ -33,17 +35,21 @@ workflow {
     Channel
         .of(lr)
         .combine(Channel.from(batch_size))
+        .combine(Channel.from(clipping))
+        .combine(Channel.from(lrdecay))
         .map{
-            lr_val, bs ->
+            lr_val, bs, cl, lrd->
                 [
                     id          : "${params.dataset}",
                     dataset_name: "${params.dataset}",
                     data_folder : ".", 
                     lr          : lr_val,
+                    lrdecay     : lrd,
                     batch_size  : bs,
                     sample_tp   : "${params.sample_tp}",
                     cut_tp      : "${params.cut_tp}",
-                    extrap      : "${params.extrap}"
+                    extrap      : "${params.extrap}", 
+                    gradientclipping: cl,
                 ]
         }.set { meta_general }
 

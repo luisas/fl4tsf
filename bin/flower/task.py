@@ -71,48 +71,69 @@ def Net():
 
 kl_coef = 0.0
 
-def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
+def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
+    net.train()  # Set the model to training mode
     n_batches = len(trainloader)
     optimizer = optim.Adamax(net.parameters(), lr=lr)
-    
+
+    model_config = get_model_config(file_path="model.config")
+
     running_loss = 0.0
     if loss_per_epoch:
         epoch_loss = []
         epoch_mse = []
+        val_loss = []
+        val_mse = []
     
     # Track the number of steps that the solver has taken
     nodesolves = []
     trainloader = utils.inf_generator(trainloader)
     # So that we can use the same kl_coef for training and testing
+    n_total_iters = epochs * n_batches
     global kl_coef 
-    kl_coef = 0.9
-    for itr in range(1, (n_batches * epochs) + 1):
+    kl_coef = 0.993
+    for itr in range(1, n_total_iters + 1):
+
+        # Set the epoch
+        epoch = itr // n_batches
+        
+        # Reset gradients
         optimizer.zero_grad()
-        utils.update_learning_rate(optimizer, decay_rate = 0.999, lowest = lr / 10)
-        # wait_until_kl_inc = 10
-        # if itr // n_batches < wait_until_kl_inc:
-        #     kl_coef = 0.
-        # else:
-        #     kl_coef = (1-0.99** (epochs // n_batches - wait_until_kl_inc))
+
+        # Learning rate decay
+        decay_rate = float(model_config["lrdecay"])
+        utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr / 10)
+
+        # KL annealing
+        wait_until_kl_inc = 10
+        if epoch < wait_until_kl_inc:
+            kl_coef = 0.
+        else:
+            kl_coef = (1-0.99** (epoch - wait_until_kl_inc))
+
+        # Get the next batch
         batch_dict = utils.get_next_batch(trainloader)
 
+        # Compute the loss
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
- 
         train_res["loss"].backward()
 
+        # Collect gradients
         grad_norms = []
         for name, param in net.named_parameters():
             if param.grad is not None:
-                grad_norm = param.grad.data.norm(2).item()
-                grad_norms.append((name, grad_norm))
-        
-        # gradient clipping to avoid vanishing/exploding gradients
-        torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+                grad_norms.append((name, param.grad.data.norm(2).item()))
 
+        # Clip gradients
+        if model_config["gradientclipping"] == "True":
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
 
+        # Update weights
         optimizer.step()
+
+        # Collect all metrics
         loss = train_res["loss"].item()
         mse = train_res["mse"].item()
         pois_likelihood = train_res["pois_likelihood"].item()
@@ -130,6 +151,16 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
             # store the weights of the model
 
+            # Validation evaluation
+            if valloader is not None:
+                val_l, val_m = test(net, valloader, device, kl_coef=kl_coef)
+                val_loss.append(val_l)
+                val_mse.append(val_m)
+                print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
+            # print learnging rate
+            for param_group in optimizer.param_groups:
+                print(f"Learning rate: {param_group['lr']:.4f}")
+
     avg_trainloss = running_loss/n_batches
 
     # print weights
@@ -142,6 +173,8 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
     dict_metrics = {
         "epoch_loss": epoch_loss,
         "epoch_mse": epoch_mse,
+        "val_loss": val_loss if loss_per_epoch else None,
+        "val_mse": val_mse if loss_per_epoch else None,
         "nodesolves": nodesolves,
         "weights": file_store,
         "grad_norms": grad_norms,
@@ -150,20 +183,27 @@ def train(net, trainloader, epochs, lr, device, loss_per_epoch=False):
         return avg_trainloss, sum(nodesolves), dict_metrics
     return avg_trainloss, sum(nodesolves), dict_metrics
 
-def test(net, testloader, device):    
+def test(net, dataloader, device, kl_coef):    
     """Validate the model on the test set."""
     net.to(device)
-    n_batches = len(testloader)
-    testloader = utils.inf_generator(testloader)
+    net.eval()
+    n_batches = len(dataloader)
+    dataloader = utils.inf_generator(dataloader)
+
+    total_loss = 0.0
+    total_mse = 0.0
+
     with torch.no_grad():
-        for itr in range(1,n_batches+1):
-            batch_dict = utils.get_next_batch(testloader)
-            test_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
-            loss = test_res["loss"].item()
-            mse = test_res["mse"].item()
-    loss = loss / n_batches
-    mse = mse / n_batches
-    return loss, mse
+        for _ in range(n_batches):
+            batch_dict = utils.get_next_batch(dataloader)
+            res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
+            total_loss += res["loss"].item()
+            total_mse += res["mse"].item()
+
+    avg_loss = total_loss / n_batches
+    avg_mse = total_mse / n_batches
+
+    return avg_loss, avg_mse
 
 
 def get_weights(net):

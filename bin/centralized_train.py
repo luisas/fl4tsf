@@ -57,16 +57,7 @@ test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
     collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
 # train
-loss_training = train(model, train_loader, epochs, lr=lr, device=device, loss_per_epoch=True)
-
-# test
-loss, accuracy = test(Net(), train_loader, device)
-print(f"Test loss before training: {loss:.4f}")
-print(f"Test accuracy before training: {accuracy:.4f}")
-
-loss, accuracy = test(model, test_loader, device)
-print(f"Test loss after training: {loss:.4f}")
-print(f"Test accuracy after training: {accuracy:.4f}")
+loss_training = train(model, train_loader, test_loader, epochs, lr=lr, device=device, loss_per_epoch=True)
 
 # Store the model 
 torch.save(model.state_dict(), "model.pth")
@@ -76,9 +67,12 @@ torch.save(model.state_dict(), "model.pth")
 # #######################################
 
 avg_loss, _, metric_dict = loss_training
-epoch_loss = metric_dict["epoch_loss"]
-mse_loss = metric_dict["epoch_mse"]
-df = pd.DataFrame({"loss": epoch_loss, "mse": mse_loss})
+train_loss = metric_dict["epoch_loss"]
+train_mse = metric_dict["epoch_mse"]
+val_loss = metric_dict["val_loss"]
+val_mse = metric_dict["val_mse"]
+
+df = pd.DataFrame({"train_loss": train_loss, "train_mse": train_mse, "val_loss": val_loss, "val_mse": val_mse})
 
 # if output_dir does not exist, create it
 if not os.path.exists(args.output_dir):
@@ -88,7 +82,4 @@ df.index.name = "epoch"
 # add output directory
 df.to_csv(os.path.join(args.output_dir, "loss_per_epoch.csv"), index=True)
 
-df_test = pd.DataFrame({"loss": loss, "accuracy": accuracy}, index=[0])
-# add output directory
-df_test.to_csv(os.path.join(args.output_dir, "test_loss_accuracy.csv"), index=False)
 
