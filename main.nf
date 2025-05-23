@@ -24,6 +24,7 @@ workflow {
     def clients         = "${params.clients}".split(",")
     def clipping        = "${params.gradient_clipping}".split(",")
     def lrdecay         = "${params.lrdecay}".split(",")
+    def localepochs     = "${params.localepochs}".split(",")
 
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
@@ -94,14 +95,15 @@ workflow {
         .combine(Channel.from(alpha))
         .combine(Channel.from(clients))
         .combine(Channel.from(replicate))
+        .combine(Channel.from(localepochs))
         .map({
-                sr, ag, alpha_val, cl, rep->
+                sr, ag, alpha_val, cl, rep, le->
                 [
                 obsrv_std: "${params.obsrv_std}", 
                 serverrounds: sr, 
                 fractionfit: "${params.fractionfit}", 
                 fractionevaluate: "${params.fractionevaluate}", 
-                localepochs: "${params.localepochs}", 
+                localepochs: le, 
                 numsupernodes: "${params.numsupernodes}", 
                 aggregation: ag, 
                 alpha: alpha_val, 

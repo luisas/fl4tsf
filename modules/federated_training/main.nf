@@ -27,21 +27,14 @@ process FEDERATED_TRAINING {
     def values = meta.values().join(",")
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
-    mkdir -p /tmp/ray_tmp
-    # create unique nr 
     export PYTHONUNBUFFERED=1
 
     # Setup Ray environment
-    export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM/"
-    export RAY_object_store_memory=5737418240
-
-    # Create the directory first
-    mkdir -p "\${RAY_TMPDIR}"
-    mkdir -p "\${RAY_TMPDIR}/s"
-
-    # Export the variables for the Python script
-    export RAY_TMPDIR="\${RAY_TMPDIR}"
-    export RAY_SOCKET_DIR="\${RAY_TMPDIR}/s"
+    export RAY_TMPDIR="/tmp/ray_tmp_luisa"
+    mkdir -p "/tmp/ray_tmp_luisa"
+    export RAY_SOCKET_DIR="/tmp/ray_tmp_luisa/s"
+    export RAY_object_store_memory=10737418240
+    mkdir -p "/tmp/ray_tmp_luisa/s"
 
     # Run the Python script
     python main.py --ncpus 2

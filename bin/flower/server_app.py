@@ -29,26 +29,29 @@ def gen_evaluate_fn(
         net = Net()
         set_weights(net, parameters_ndarrays)
         net.to(device)
-        loss, accuracy = test(net, testloader, device=device)
+        loss, accuracy = test(net, testloader, device=device, kl_coef = 0.993)
         return loss, {"centralized_accuracy": accuracy}
 
     return evaluate
 
 
-def on_fit_config(server_round: int):
-    """Construct `config` that clients receive when running `fit()`"""
-    model_config = get_model_config(file_path="model.config")
-    lr = float(model_config["lr"])
-    # Enable a simple form of learning rate decay
-    if server_round > 10:
-       lr /= 2
-    return {"lr": lr}
+# def on_fit_config(server_round: int):
+#     """Construct `config` that clients receive when running `fit()`"""
+#     model_config = get_model_config(file_path="model.config")
+#     lr = float(model_config["lr"])
+#     # Enable a simple form of learning rate decay
+#     if server_round > 10:
+#        lr /= 2
+#     return {"lr": lr}
 
 
 # Define metric aggregation function
 def weighted_average(metrics):
+
+    print(metrics)
     # Multiply accuracy of each client by number of examples used
     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    #losses = [num_examples * m["loss"] for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
 
     # Aggregate and return custom metric (weighted average)
@@ -73,8 +76,6 @@ def server_fn(context: Context, nrounds: int = 4):
     # Initialize model parameters
     ndarrays = get_weights(Net())
     parameters = ndarrays_to_parameters(ndarrays)
-
-    
 
     dataset_name = model_config["dataset_name"]
     sample_tp = float(model_config["sample_tp"])
@@ -103,7 +104,3 @@ def server_fn(context: Context, nrounds: int = 4):
 
     config = ServerConfig(num_rounds=num_rounds)
     return ServerAppComponents(strategy=strategy, config=config)
-
-
-# Create ServerApp
-#app = ServerApp(server_fn=server_fn)

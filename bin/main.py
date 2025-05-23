@@ -17,6 +17,7 @@ from flwr.common import Config
 
 DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
 
+RAY_TMPDIR = "/tmp/ray_tmp_luisa"
 
 def main(ncpus = 2):
     
@@ -25,7 +26,8 @@ def main(ncpus = 2):
     cpus_for_this_ray_instance = ncpus
 
     # Check RAY_TMPDIR environment variable
-    ray_tmpdir = os.environ.get("RAY_TMPDIR", "Not set")
+    #ray_tmpdir = os.environ.get("RAY_TMPDIR", "Not set")
+    ray_tmpdir = "/tmp/ray_tmp_luisa"
     ray_socket_dir = os.environ.get("RAY_SOCKET_DIR", os.path.join(ray_tmpdir, "s") if ray_tmpdir != "Not set" else None)
     
     # Initialize Ray with explicit socket paths

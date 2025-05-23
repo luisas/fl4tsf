@@ -34,7 +34,6 @@ except:
 	print("Couldn't import umap")
 
 from lib.generate_timeseries import Periodic_1d
-from person_activity import PersonActivity
 
 from lib.utils import compute_loss_all_batches
 

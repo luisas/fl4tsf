@@ -104,7 +104,8 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
 
         # Learning rate decay
         decay_rate = float(model_config["lrdecay"])
-        utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr / 10)
+        if decay_rate < 1.0:
+            utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr / 10)
 
         # KL annealing
         wait_until_kl_inc = 10
@@ -171,8 +172,8 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
     torch.save(w, file_store)
     
     dict_metrics = {
-        "epoch_loss": epoch_loss,
-        "epoch_mse": epoch_mse,
+        "train_loss": epoch_loss,
+        "train_mse": epoch_mse,
         "val_loss": val_loss if loss_per_epoch else None,
         "val_mse": val_mse if loss_per_epoch else None,
         "nodesolves": nodesolves,
