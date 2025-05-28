@@ -67,8 +67,8 @@ torch.save(model.state_dict(), "model.pth")
 # #######################################
 
 avg_loss, _, metric_dict = loss_training
-train_loss = metric_dict["epoch_loss"]
-train_mse = metric_dict["epoch_mse"]
+train_loss = metric_dict["train_loss"]
+train_mse = metric_dict["train_mse"]
 val_loss = metric_dict["val_loss"]
 val_mse = metric_dict["val_mse"]
 

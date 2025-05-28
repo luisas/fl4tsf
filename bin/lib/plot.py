@@ -55,7 +55,7 @@ def init_fonts(main_font_size = LARGE_SIZE):
 
 def plot_trajectories(ax, traj, time_steps, min_y = None, max_y = None, title = "", 
 		add_to_plot = False, label = None, add_legend = False, dim_to_show = 0,
-		linestyle = '-', marker = 'o', mask = None, color = None, linewidth = 1):
+		linestyle = '-', marker = 'o', mask = None, color = None, linewidth = 1, markersize = 5):
 	# expected shape of traj: [n_traj, n_timesteps, n_dims]
 	# The function will produce one line per trajectory (n_traj lines in total)
 	if not add_to_plot:
@@ -77,7 +77,7 @@ def plot_trajectories(ax, traj, time_steps, min_y = None, max_y = None, title = 
 			m = mask[i].cpu().numpy()[:, dim_to_show]
 			d = d[m == 1]
 			ts = ts[m == 1]
-		ax.plot(ts, d, linestyle = linestyle, label = label, marker=marker, color = color, linewidth = linewidth)
+		ax.plot(ts, d, linestyle = linestyle, label = label, marker=marker, color = color, linewidth = linewidth, markersize = markersize)
 
 	if add_legend:
 		ax.legend()
@@ -89,6 +89,7 @@ def plot_std(ax, traj, traj_std, time_steps, min_y = None, max_y = None, title =
 	# take only the first (and only?) dimension
 	mean_minus_std = (traj - traj_std).cpu().numpy()[:, :, 0]
 	mean_plus_std = (traj + traj_std).cpu().numpy()[:, :, 0]
+
 
 	for i in range(traj.size()[0]):
 		ax.fill_between(time_steps.cpu().numpy(), mean_minus_std[i], mean_plus_std[i], 
@@ -174,7 +175,8 @@ class Visualizations():
 		self.ax_traj_from_prior = self.fig.add_subplot(2,3,6, frameon=False)
 
 		self.plot_limits = {}
-		plt.show(block=False)
+		#plt.show(block=False)
+
 
 	def set_plot_lims(self, ax, name):
 		if name not in self.plot_limits:
@@ -308,12 +310,18 @@ class Visualizations():
 		plot_name = "", save = False, experimentID = 0.):
 
 		data =  data_dict["data_to_predict"]
+		print(data[1,:10,:].cpu().numpy().squeeze())
 		time_steps = data_dict["tp_to_predict"]
 		mask = data_dict["mask_predicted_data"]
+		# print the mask
+		print(mask)
 		
 		observed_data =  data_dict["observed_data"]
+		print(observed_data[1,:10,:].cpu().numpy().squeeze())
 		observed_time_steps = data_dict["observed_tp"]
 		observed_mask = data_dict["observed_mask"]
+		# print the mask 
+		print(observed_mask[1,:10,:].cpu().numpy().squeeze())
 
 		device = get_device(time_steps)
 
@@ -329,6 +337,9 @@ class Visualizations():
 		# plot only 10 trajectories
 		data_for_plotting = observed_data[:n_traj_to_show]
 		mask_for_plotting = observed_mask[:n_traj_to_show]
+
+		data_full = data[:n_traj_to_show]
+
 		reconstructions_for_plotting = reconstructions.mean(dim=0)[:n_traj_to_show]
 		reconstr_std = reconstructions.std(dim=0)[:n_traj_to_show]
 
@@ -343,24 +354,33 @@ class Visualizations():
 		############################################
 		# Plot reconstructions, true postrior and approximate posterior
 
-		cmap = plt.cm.get_cmap('Set1')
+		cmap = plt.colormaps['Set1']
 		for traj_id in range(3):
+
 			# Plot observations
+			plot_trajectories(self.ax_traj[traj_id], 
+				data_full[traj_id].unsqueeze(0), observed_time_steps, 
+				#mask = mask_for_plotting[traj_id].unsqueeze(0),
+				min_y = min_y, max_y = max_y, #title="True trajectories", 
+				marker = 'o', linestyle='', dim_to_show = dim_to_show, markersize= 5,
+				color = cmap(4))
+			# # # Plot observations
 			plot_trajectories(self.ax_traj[traj_id], 
 				data_for_plotting[traj_id].unsqueeze(0), observed_time_steps, 
 				mask = mask_for_plotting[traj_id].unsqueeze(0),
 				min_y = min_y, max_y = max_y, #title="True trajectories", 
-				marker = 'o', linestyle='', dim_to_show = dim_to_show,
-				color = cmap(2))
-			# Plot reconstructions
+				marker = 'o', linestyle='', dim_to_show = dim_to_show, add_to_plot= True, markersize= 2,
+				color = cmap(5))
+
+			# # Plot reconstructions
 			plot_trajectories(self.ax_traj[traj_id],
 				reconstructions_for_plotting[traj_id].unsqueeze(0), time_steps_to_predict, 
 				min_y = min_y, max_y = max_y, title="Sample {} (data space)".format(traj_id), dim_to_show = dim_to_show,
-				add_to_plot = True, marker = '', color = cmap(3), linewidth = 3)
-			# Plot variance estimated over multiple samples from approx posterior
+				add_to_plot = True, marker = '', color = cmap(3), linewidth = 1)
+			# # Plot variance estimated over multiple samples from approx posterior
 			plot_std(self.ax_traj[traj_id], 
 				reconstructions_for_plotting[traj_id].unsqueeze(0), reconstr_std[traj_id].unsqueeze(0), 
-				time_steps_to_predict, alpha=0.5, color = cmap(3))
+				time_steps_to_predict, alpha=0.5, color = cmap(3), add_to_plot= True)
 			self.set_plot_lims(self.ax_traj[traj_id], "traj_" + str(traj_id))
 			
 			# Plot true posterior and approximate posterior
@@ -428,7 +448,7 @@ class Visualizations():
 		# shape before permute: [1, n_tp, n_latent_dims]
 
 		self.ax_latent_traj.cla()
-		cmap = plt.cm.get_cmap('Accent')
+		cmap = plt.colormaps['Accent']
 		n_latent_dims = latent_traj.size(-1)
 
 		custom_labels = {}
@@ -454,6 +474,7 @@ class Visualizations():
 			dirname = "plots/" + str(experimentID) + "/"
 			os.makedirs(dirname, exist_ok=True)
 			self.fig.savefig(dirname + plot_name)
+			plt.close()
 
 
 

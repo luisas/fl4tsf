@@ -15,29 +15,23 @@ from flwr.simulation import run_simulation
 from flwr.common import Config
 
 
-DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-RAY_TMPDIR = "/tmp/ray_tmp_luisa"
 
-def main(ncpus = 2):
+def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
     
     print("Starting Flower server...")
-
-    cpus_for_this_ray_instance = ncpus
-
-    # Check RAY_TMPDIR environment variable
-    #ray_tmpdir = os.environ.get("RAY_TMPDIR", "Not set")
-    ray_tmpdir = "/tmp/ray_tmp_luisa"
-    ray_socket_dir = os.environ.get("RAY_SOCKET_DIR", os.path.join(ray_tmpdir, "s") if ray_tmpdir != "Not set" else None)
+    # print the device 
+    print(f"Using device: {DEVICE}")
     
     # Initialize Ray with explicit socket paths
     ray.init(
         logging_level=logging.INFO,
         include_dashboard=False,
-        num_cpus=cpus_for_this_ray_instance,
-        num_gpus=0,
+        num_cpus=ncpus,
+        num_gpus=ngpus,
         _plasma_directory=ray_socket_dir,  # Use the very short socket directory
-        _temp_dir=ray_tmpdir,  # Use the main temporary directory
+        _temp_dir=raydir,  # Use the main temporary directory
         _enable_object_reconstruction=True,
     )
 
@@ -45,14 +39,14 @@ def main(ncpus = 2):
     server = ServerApp(server_fn=server_fn )
 
     backend_config = {"client_resources": None}
-    # if DEVICE.type == "cuda":
-    #     backend_config = {"client_resources": {"num_gpus": 1}}
+    if DEVICE.type == "cuda":
+        backend_config = {"client_resources": { "num_gpus": 1, "num_cpus":1 }}
 
     run_simulation(
         server_app=server,
         client_app=client,
         backend_config=backend_config,
-        num_supernodes = 2,
+        num_supernodes =nclients,
     )
             
     ray.shutdown()
@@ -70,6 +64,32 @@ if __name__ == "__main__":
         default=2,
         help="Number of CPUs to use for the server",
     )
+    parser.add_argument(
+        "--raydir",
+        type=str,
+        default=None,
+        help="Directory for Ray temporary files",
+    )
+    parser.add_argument(
+        "--ray_socket_dir",
+        type=str,
+        default=None,
+        help="Directory for Ray socket files",
+    )
+
+    parser.add_argument(
+        "--ngpus",
+        type=int,
+        default=0,
+        help="Number of GPUs available"
+    )
+
+    parser.add_argument(
+        "--nclients",
+        type=int,
+        default=2,
+        help="Number of clients to simulate"
+    )
 
     args = parser.parse_args()
-    main(args.ncpus)
+    main(args.ncpus, args.ngpus, args.raydir, args.ray_socket_dir, args.nclients)

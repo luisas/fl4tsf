@@ -90,6 +90,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
     # Track the number of steps that the solver has taken
     nodesolves = []
     trainloader = utils.inf_generator(trainloader)
+
     # So that we can use the same kl_coef for training and testing
     n_total_iters = epochs * n_batches
     global kl_coef 
@@ -118,6 +119,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
         batch_dict = utils.get_next_batch(trainloader)
 
         # Compute the loss
+        batch_dict = utils.move_to_device(batch_dict, device)
         train_res = net.compute_all_losses(batch_dict, n_traj_samples = 3, kl_coef = kl_coef)
         train_res["loss"].backward()
 
@@ -196,7 +198,9 @@ def test(net, dataloader, device, kl_coef):
 
     with torch.no_grad():
         for _ in range(n_batches):
+
             batch_dict = utils.get_next_batch(dataloader)
+            batch_dict = utils.move_to_device(batch_dict, device)
             res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
             total_loss += res["loss"].item()
             total_mse += res["mse"].item()

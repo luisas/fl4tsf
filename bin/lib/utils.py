@@ -614,6 +614,13 @@ def check_mask(data, mask):
 	assert(torch.sum(data[mask == 0.] != 0.) == 0)
 
 
-
+def move_to_device(data_dict, device):
+	# Move data to the device
+	for key in data_dict.keys():
+		if isinstance(data_dict[key], torch.Tensor):
+			data_dict[key] = data_dict[key].to(device)
+		elif isinstance(data_dict[key], list):
+			data_dict[key] = [x.to(device) for x in data_dict[key]]
+	return data_dict
 
 

@@ -175,7 +175,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 		z0_dim = None, GRU_update = None, 
 		n_gru_units = 100, 
 		device = torch.device("cpu")):
-		
 		super(Encoder_z0_ODE_RNN, self).__init__()
 
 		if z0_dim is None:

@@ -30,14 +30,13 @@ process FEDERATED_TRAINING {
     export PYTHONUNBUFFERED=1
 
     # Setup Ray environment
-    export RAY_TMPDIR="/tmp/ray_tmp_luisa"
-    mkdir -p "/tmp/ray_tmp_luisa"
-    export RAY_SOCKET_DIR="/tmp/ray_tmp_luisa/s"
+    export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
+    mkdir -p "\$RAY_TMPDIR"
+    export RAY_SOCKET_DIR="/tmp/ray_tmp_luisa/\$RANDOM/s"
     export RAY_object_store_memory=10737418240
-    mkdir -p "/tmp/ray_tmp_luisa/s"
+    mkdir -p "\$RAY_SOCKET_DIR"
 
-    # Run the Python script
-    python main.py --ncpus 2
+    python main.py --ncpus ${task.cpus} --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
 
     # Store a file with all the meta information
     echo "$keys" > meta.csv

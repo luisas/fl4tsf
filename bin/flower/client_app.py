@@ -27,7 +27,7 @@ class FlowerClient(NumPyClient):
         self.trainloader = trainloader
         self.valloader = valloader
         self.local_epochs = local_epochs
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.net.to(self.device)
         self.local_layer_name = "classification-head"
         self.num_client = num_client
@@ -44,6 +44,7 @@ class FlowerClient(NumPyClient):
 
         # Apply weights from global models (the whole model is replaced)
         set_weights(self.net, parameters)
+        self.net.to(self.device)
         config = get_model_config(file_path="model.config")
         learning_rate = float(config["lr"])
         # Override weights in classification layer with those this client
@@ -104,7 +105,11 @@ class FlowerClient(NumPyClient):
 
     def _store_results(self, tag: str, client, results_dict):
         """Store results in JSON file, with automatic round tracking."""
-        filename = f"federated_outputs/results_{client}.json"
+        # Ensure the directory exists
+        output_dir = "federated_outputs"
+        os.makedirs(output_dir, exist_ok=True)
+
+        filename = f"{output_dir}/results_{client}.json"
 
         # Load existing results from disk if file exists
         if os.path.exists(filename):
@@ -138,6 +143,7 @@ class FlowerClient(NumPyClient):
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in
         # self._load_layer_weights_from_state()
+        self.net.to(self.device)
         loss, accuracy = test(self.net, self.valloader, self.device, kl_coef = 0.993)
         return loss, len(self.valloader.dataset), {"accuracy": accuracy}
 

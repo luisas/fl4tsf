@@ -9,6 +9,7 @@ from flower.task import (
     test,
 )
 from torch.utils.data import DataLoader
+from flwr.server.strategy import FedAvg
 
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
@@ -67,6 +68,9 @@ def server_fn(context: Context, nrounds: int = 4):
     fraction_eval = float(model_config["fractionevaluate"])
     server_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    print("=================== sever fn ===================")
+    print(f"Using device: {server_device}")
+
     run_config = {
         "num-server-rounds": num_rounds,
         "fraction-fit": fraction_fit,
@@ -90,7 +94,6 @@ def server_fn(context: Context, nrounds: int = 4):
     testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
         collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
-    # Define strategy
     strategy = CustomFedAvg(
         run_config=run_config,
         use_wandb=model_config["use_wandb"],
@@ -102,5 +105,7 @@ def server_fn(context: Context, nrounds: int = 4):
         evaluate_metrics_aggregation_fn=weighted_average,
     )
 
+
+
     config = ServerConfig(num_rounds=num_rounds)
-    return ServerAppComponents(strategy=strategy, config=config)
+    return ServerAppComponents(strategy=strategy, config=config, )
