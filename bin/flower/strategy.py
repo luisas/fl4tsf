@@ -156,25 +156,21 @@ class CustomFedAvg(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
         
-        if self.inplace:
-            # Does in-place weighted average of results
-            aggregated_ndarrays = aggregate_inplace(results)
-            parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
-        else:
-            weights_results = [
-                (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
-                for _, fit_res in results
-            ]
 
-            if(self.aggregate_fun_name == "FedAvg"):
-                # Aggregate using average
-                parameters_aggregated = aggregate_avg(weights_results)
-            elif(self.aggregate_fun_name == "FedODE"):
-                # Aggregate using ODE
-                parameters_aggregated = aggregate_ode(weights_results, self.alpha)
-            else:
-                raise ValueError(f"Unknown aggregation function: {self.aggregate_fun_name}")    
-            parameters_aggregated = ndarrays_to_parameters(parameters_aggregated)
+        weights_results = [
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
+            for _, fit_res in results
+        ]
+
+        if(self.aggregate_fun_name == "FedAvg"):
+            # Aggregate using average
+            parameters_aggregated = aggregate_avg(weights_results)
+        elif(self.aggregate_fun_name == "FedODE"):
+            # Aggregate using ODE
+            parameters_aggregated = aggregate_ode(weights_results, self.alpha)
+        else:
+            raise ValueError(f"Unknown aggregation function: {self.aggregate_fun_name}")    
+        parameters_aggregated = ndarrays_to_parameters(parameters_aggregated)
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 
@@ -238,40 +234,3 @@ def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
     ]
     return weights_prime
 
-def aggregate_inplace(results: list[tuple[ClientProxy, FitRes]]) -> NDArrays:
-    """Compute in-place weighted average."""
-    # Count total examples
-    num_examples_total = sum(fit_res.num_examples for (_, fit_res) in results)
-
-    # Compute scaling factors for each result
-    scaling_factors = np.asarray(
-        [fit_res.num_examples / num_examples_total for _, fit_res in results]
-    )
-
-    def _try_inplace(
-        x: NDArray, y: Union[NDArray, np.float64], np_binary_op: np.ufunc
-    ) -> NDArray:
-        return (  # type: ignore[no-any-return]
-            np_binary_op(x, y, out=x)
-            if np.can_cast(y, x.dtype, casting="same_kind")
-            else np_binary_op(x, np.array(y, x.dtype), out=x)
-        )
-
-    # Let's do in-place aggregation
-    # Get first result, then add up each other
-    params = [
-        _try_inplace(x, scaling_factors[0], np_binary_op=np.multiply)
-        for x in parameters_to_ndarrays(results[0][1].parameters)
-    ]
-
-    for i, (_, fit_res) in enumerate(results[1:], start=1):
-        res = (
-            _try_inplace(x, scaling_factors[i], np_binary_op=np.multiply)
-            for x in parameters_to_ndarrays(fit_res.parameters)
-        )
-        params = [
-            reduce(partial(_try_inplace, np_binary_op=np.add), layer_updates)
-            for layer_updates in zip(params, res)
-        ]
-
-    return params

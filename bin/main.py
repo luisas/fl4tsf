@@ -40,8 +40,11 @@ def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
 
     backend_config = {"client_resources": None}
     if DEVICE.type == "cuda":
-        backend_config = {"client_resources": { "num_gpus": 1, "num_cpus":1 }}
-
+        ngpus = decimal.Decimal(ngpus) / nclients
+        backend_config = {"client_resources": { "num_gpus": float(ngpus), "num_cpus":ncpus }}
+    elif DEVICE.type == "cpu":
+        backend_config = {"client_resources": { "num_cpus": ncpus }}
+        
     run_simulation(
         server_app=server,
         client_app=client,
@@ -76,14 +79,12 @@ if __name__ == "__main__":
         default=None,
         help="Directory for Ray socket files",
     )
-
     parser.add_argument(
         "--ngpus",
         type=int,
         default=0,
         help="Number of GPUs available"
     )
-
     parser.add_argument(
         "--nclients",
         type=int,

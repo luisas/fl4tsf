@@ -310,18 +310,14 @@ class Visualizations():
 		plot_name = "", save = False, experimentID = 0.):
 
 		data =  data_dict["data_to_predict"]
-		print(data[1,:10,:].cpu().numpy().squeeze())
 		time_steps = data_dict["tp_to_predict"]
 		mask = data_dict["mask_predicted_data"]
 		# print the mask
-		print(mask)
 		
 		observed_data =  data_dict["observed_data"]
-		print(observed_data[1,:10,:].cpu().numpy().squeeze())
 		observed_time_steps = data_dict["observed_tp"]
 		observed_mask = data_dict["observed_mask"]
 		# print the mask 
-		print(observed_mask[1,:10,:].cpu().numpy().squeeze())
 
 		device = get_device(time_steps)
 

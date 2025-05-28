@@ -6,16 +6,13 @@ from datetime import datetime
 from pathlib import Path
 
 
-from torchdiffeq import odeint
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from flwr_datasets import FederatedDataset
-from flwr_datasets.partitioner import DirichletPartitioner
 from torch.utils.data import DataLoader
-from flwr.common.typing import UserConfig
 from types import SimpleNamespace
+from flwr.common.typing import UserConfig
 
 from lib.rnn_baselines import *
 from lib.ode_rnn import *
