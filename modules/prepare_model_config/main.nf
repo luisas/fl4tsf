@@ -3,7 +3,7 @@ process PREPARE_MODEL_CONFIG {
     val(meta)
 
     output:
-    path("model.config"), emit: config
+    tuple val(meta), path("model.config"), emit: config
 
     script:
     def header = meta.keySet().join(",")

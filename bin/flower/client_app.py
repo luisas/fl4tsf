@@ -31,7 +31,6 @@ class FlowerClient(NumPyClient):
         self.net.to(self.device)
         self.local_layer_name = "classification-head"
         self.num_client = num_client
-        self.round = 0
         self.results = {}
 
     def fit(self, parameters, config):
@@ -45,8 +44,16 @@ class FlowerClient(NumPyClient):
         # Apply weights from global models (the whole model is replaced)
         set_weights(self.net, parameters)
         self.net.to(self.device)
-        config = get_model_config(file_path="model.config")
+        #config = get_model_config(file_path="model.config")
+        # print round
         learning_rate = float(config["lr"])
+
+        print("CONFIGURATION:")
+        print (f"Learning rate: {learning_rate}")
+        print(config)
+
+
+
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in
         #self._load_layer_weights_from_state()
@@ -60,7 +67,6 @@ class FlowerClient(NumPyClient):
             lr=learning_rate,
             device=self.device,
             loss_per_epoch=True,
-
         )
         epoch_loss = metric_dict["train_loss"]
         epoch_mse = metric_dict["train_mse"]
@@ -69,11 +75,12 @@ class FlowerClient(NumPyClient):
         nodesolves = metric_dict["nodesolves"]
         weights = metric_dict["weights"]
         grad_norms = metric_dict["grad_norms"]
+        lr = metric_dict["lr"]
 
         self._store_results(
             tag="client_train",
             client=self.num_client,
-            results_dict={"train_loss": epoch_loss, "train_mse": epoch_mse, "val_loss": val_loss, "val_mse": val_mse, "nodesolve": nodesolves, "weights": weights, "grad_norms": grad_norms},
+            results_dict={"train_loss": epoch_loss, "train_mse": epoch_mse, "val_loss": val_loss, "val_mse": val_mse, "nodesolve": nodesolves, "weights": weights, "grad_norms": grad_norms, "lr": lr},
         )
 
         # Save classification head to context's state to use in a future fit() call

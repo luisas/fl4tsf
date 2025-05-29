@@ -68,7 +68,7 @@ def Net():
 
 kl_coef = 0.0
 
-def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False):
+def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False ):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     net.train()  # Set the model to training mode
@@ -83,7 +83,9 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
         epoch_mse = []
         val_loss = []
         val_mse = []
+        lrs = []
     
+
     # Track the number of steps that the solver has taken
     nodesolves = []
     trainloader = utils.inf_generator(trainloader)
@@ -102,8 +104,8 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
 
         # Learning rate decay
         decay_rate = float(model_config["lrdecay"])
-        if decay_rate < 1.0:
-            utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr / 10)
+
+            
 
         # KL annealing
         wait_until_kl_inc = 10
@@ -150,7 +152,9 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
                 epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
             # store the weights of the model
-
+            if decay_rate < 1.0 and itr > 1:    
+                utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr/10)
+            lrs.append(optimizer.param_groups[0]['lr'])
             # Validation evaluation
             if valloader is not None:
                 val_l, val_m = test(net, valloader, device, kl_coef=kl_coef)
@@ -178,6 +182,8 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False)
         "nodesolves": nodesolves,
         "weights": file_store,
         "grad_norms": grad_norms,
+        "lr": lrs
+
     }
     if loss_per_epoch:
         return avg_trainloss, sum(nodesolves), dict_metrics

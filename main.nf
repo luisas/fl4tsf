@@ -113,6 +113,8 @@ workflow {
             })
         .set { meta_federated }
 
+    meta_federated.view()
+
     meta_general
         .combine(meta_model_params)
         .combine(meta_centralized)

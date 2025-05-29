@@ -36,20 +36,23 @@ def gen_evaluate_fn(
     return evaluate
 
 
-# def on_fit_config(server_round: int):
-#     """Construct `config` that clients receive when running `fit()`"""
-#     model_config = get_model_config(file_path="model.config")
-#     lr = float(model_config["lr"])
-#     # Enable a simple form of learning rate decay
-#     if server_round > 10:
-#        lr /= 2
-#     return {"lr": lr}
+def on_fit_config(server_round: int):
+    """Construct `config` that clients receive when running `fit()`"""
+    model_config = get_model_config(file_path="model.config")
+    lr = float(model_config["lr"])
+    # Enable a simple form of learning rate decay
+    if server_round > 15:
+        # Reduce learning rate by 10% for each round after the first
+        lr /= 10
+    elif server_round > 50:
+        # Reduce learning rate by 10% for each round after the first
+        lr /= 100
+    return {"lr": lr}
 
 
 # Define metric aggregation function
 def weighted_average(metrics):
 
-    print(metrics)
     # Multiply accuracy of each client by number of examples used
     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
     #losses = [num_examples * m["loss"] for num_examples, m in metrics]
@@ -67,9 +70,6 @@ def server_fn(context: Context, nrounds: int = 4):
     fraction_fit = float(model_config["fractionfit"])
     fraction_eval = float(model_config["fractionevaluate"])
     server_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    print("=================== sever fn ===================")
-    print(f"Using device: {server_device}")
 
     run_config = {
         "num-server-rounds": num_rounds,
@@ -100,7 +100,7 @@ def server_fn(context: Context, nrounds: int = 4):
         fraction_fit=fraction_fit,
         fraction_evaluate=fraction_eval,
         initial_parameters=parameters,
-        #on_fit_config_fn=on_fit_config,
+        on_fit_config_fn=on_fit_config,
         evaluate_fn=gen_evaluate_fn(testloader, device=server_device),
         evaluate_metrics_aggregation_fn=weighted_average,
     )

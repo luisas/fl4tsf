@@ -18,7 +18,13 @@ workflow FEDERATED_LEARNING_SIMULATION{
         cen_meta = centralized_data_and_params_ch.map{ meta, data -> meta}
         PREP_CONFIG_CEN(cen_meta)
         cen_model_config = PREP_CONFIG_CEN.out.config
-        CENTRALIZED_TRAINING(centralized_data_and_params_ch, cen_model_config )
+        // combine centralized_data_and_params_ch and cen_model_config
+        centralized_data_and_params_ch.combine(cen_model_config, by: 0).multiMap{ meta, data, config -> 
+            dataset: [meta, data]
+            conf: config
+        }.set { cen_training_input }
+
+        CENTRALIZED_TRAINING(cen_training_input.dataset, cen_training_input.conf)
     }
 
 
@@ -26,7 +32,15 @@ workflow FEDERATED_LEARNING_SIMULATION{
         fed_meta = federated_data_and_params_ch.map{ meta, data -> meta}
         PREP_CONFIG_FED(fed_meta)
         fed_model_config = PREP_CONFIG_FED.out.config
-        FEDERATED_TRAINING(federated_data_and_params_ch, bin, fed_model_config)
+
+        // combine federated_data_and_params_ch and fed_model_config\
+        federated_data_and_params_ch.combine(fed_model_config, by: 0).multiMap{ meta, data, config -> 
+            dataset: [meta, data]
+            conf: config
+        }.set { fed_training_input }
+
+
+        FEDERATED_TRAINING(fed_training_input.dataset, bin, fed_training_input.conf)
     }
 
 
