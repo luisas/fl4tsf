@@ -55,7 +55,7 @@ def init_fonts(main_font_size = LARGE_SIZE):
 
 def plot_trajectories(ax, traj, time_steps, min_y = None, max_y = None, title = "", 
 		add_to_plot = False, label = None, add_legend = False, dim_to_show = 0,
-		linestyle = '-', marker = 'o', mask = None, color = None, linewidth = 1, markersize = 5):
+		linestyle = '-', marker = 'o', mask = None, color = None, linewidth = 1, markersize = 5, alpha = 1.0):
 	# expected shape of traj: [n_traj, n_timesteps, n_dims]
 	# The function will produce one line per trajectory (n_traj lines in total)
 	if not add_to_plot:
@@ -77,7 +77,7 @@ def plot_trajectories(ax, traj, time_steps, min_y = None, max_y = None, title = 
 			m = mask[i].cpu().numpy()[:, dim_to_show]
 			d = d[m == 1]
 			ts = ts[m == 1]
-		ax.plot(ts, d, linestyle = linestyle, label = label, marker=marker, color = color, linewidth = linewidth, markersize = markersize)
+		ax.plot(ts, d, linestyle = linestyle, label = label, marker=marker, color = color, linewidth = linewidth, markersize = markersize, alpha= alpha)
 
 	if add_legend:
 		ax.legend()
