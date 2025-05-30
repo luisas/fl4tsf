@@ -93,7 +93,7 @@ def plot_n_outputs(model, dataset, timestamps, n = 3, id = 10):
             # Plot reconstructions
             plot_trajectories(ax_traj[traj_id],
                 reconstructions_for_plotting[traj_id].unsqueeze(0), time_steps_to_predict, 
-                min_y = min_y, max_y = max_y, title="Sample {} (data space)".format(traj_id), dim_to_show = dim_to_show,
+                min_y = min_y, max_y = max_y, title="Sample {}".format(traj_id), dim_to_show = dim_to_show,
                 add_to_plot = True, marker = '', color =  "darkorange", linewidth = 1.3, linestyle='-', alpha = 0.9)
             # Plot std
             # plot_std(ax_traj[traj_id], 
