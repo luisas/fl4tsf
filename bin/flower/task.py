@@ -105,8 +105,6 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         # Learning rate decay
         decay_rate = float(model_config["lrdecay"])
 
-            
-
         # KL annealing
         wait_until_kl_inc = 10
         if epoch < wait_until_kl_inc:
@@ -168,11 +166,14 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
     avg_trainloss = running_loss/n_batches
 
     # print weights
-    w = get_weights(net)
-    # store them 
-    random_id = str(int(torch.randint(0, 1000000, (1,)).item()))
-    file_store = f"weights_{random_id}.pt"
-    torch.save(w, file_store)
+    file_store = None
+    if(model_config["storeweigths"] == "True"):
+        w = get_weights(net)
+        # store them 
+        random_id = str(int(torch.randint(0, 1000000, (1,)).item()))
+        file_store = f"weights_{random_id}.pt"
+        torch.save(w, file_store)
+    
     
     dict_metrics = {
         "train_loss": epoch_loss,

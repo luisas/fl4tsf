@@ -29,6 +29,7 @@ process FEDERATED_TRAINING {
     export MPLCONFIGDIR=\$PWD/.mplconfig
     export PYTHONUNBUFFERED=1
 
+
     # Setup Ray environment
     export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
     mkdir -p "\$RAY_TMPDIR"
@@ -36,7 +37,7 @@ process FEDERATED_TRAINING {
     export RAY_object_store_memory=10737418240
     mkdir -p "\$RAY_SOCKET_DIR"
 
-    python main.py --ncpus ${task.cpus} --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
+    python main.py --ncpus 3 --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
 
     # Store a file with all the meta information
     echo "$keys" > meta.csv

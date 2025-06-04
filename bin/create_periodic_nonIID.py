@@ -17,6 +17,7 @@ def store_periodic_dataset(args):
 	# 2. Split into train and test
 	train, test = utils.split_train_test(dataset, train_fraq = 0.8)
 
+
 	# store the train and test datasets
 	output_file_prefix = "../../data/periodic/periodic"
 	# if it doesn't exist, create the directory

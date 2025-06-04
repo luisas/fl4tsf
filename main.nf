@@ -25,6 +25,7 @@ workflow {
     def clipping        = "${params.gradient_clipping}".split(",")
     def lrdecay         = "${params.lrdecay}".split(",")
     def localepochs     = "${params.localepochs}".split(",")
+    def decay_onset     = "${params.decay_onset}".split(",")
 
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
@@ -51,6 +52,7 @@ workflow {
                     cut_tp      : "${params.cut_tp}",
                     extrap      : "${params.extrap}", 
                     gradientclipping: cl,
+                    storeweights: "${params.storeweights}"
                 ]
         }.set { meta_general }
 
@@ -96,8 +98,9 @@ workflow {
         .combine(Channel.from(clients))
         .combine(Channel.from(replicate))
         .combine(Channel.from(localepochs))
+        .combine(Channel.from(decay_onset))
         .map({
-                sr, ag, alpha_val, cl, rep, le->
+                sr, ag, alpha_val, cl, rep, le, deco ->
                 [
                 obsrv_std: "${params.obsrv_std}", 
                 serverrounds: sr, 
@@ -109,11 +112,11 @@ workflow {
                 alpha: alpha_val, 
                 clients: cl, 
                 replicate: rep, 
+                decay_onset: deco,
                 use_wandb: "${params.use_wandb}",]
             })
         .set { meta_federated }
 
-    meta_federated.view()
 
     meta_general
         .combine(meta_model_params)

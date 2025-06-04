@@ -48,11 +48,6 @@ class FlowerClient(NumPyClient):
         # print round
         learning_rate = float(config["lr"])
 
-        print("CONFIGURATION:")
-        print (f"Learning rate: {learning_rate}")
-        print(config)
-
-
 
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in

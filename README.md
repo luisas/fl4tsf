@@ -33,5 +33,5 @@ analysis/02_centralized_training.ipynb
 - sanity check: federated training with FedAvg in IID setting. 
 
 ```
-analysis/03_centralized_training.ipynb
+analysis/03_federated_training.ipynb
 ```

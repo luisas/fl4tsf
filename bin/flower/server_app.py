@@ -40,13 +40,11 @@ def on_fit_config(server_round: int):
     """Construct `config` that clients receive when running `fit()`"""
     model_config = get_model_config(file_path="model.config")
     lr = float(model_config["lr"])
+    decay_onset = int(model_config["decay_onset"])
     # Enable a simple form of learning rate decay
-    if server_round > 15:
+    if server_round > decay_onset:
         # Reduce learning rate by 10% for each round after the first
         lr /= 10
-    elif server_round > 50:
-        # Reduce learning rate by 10% for each round after the first
-        lr /= 100
     return {"lr": lr}
 
 
@@ -104,8 +102,6 @@ def server_fn(context: Context, nrounds: int = 4):
         evaluate_fn=gen_evaluate_fn(testloader, device=server_device),
         evaluate_metrics_aggregation_fn=weighted_average,
     )
-
-
 
     config = ServerConfig(num_rounds=num_rounds)
     return ServerAppComponents(strategy=strategy, config=config, )

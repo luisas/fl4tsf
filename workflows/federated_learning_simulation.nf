@@ -15,7 +15,7 @@ workflow FEDERATED_LEARNING_SIMULATION{
     main:
 
     if(!params.skip_centralized){
-        cen_meta = centralized_data_and_params_ch.map{ meta, data -> meta}
+        cen_meta = centralized_data_and_params_ch.map{ meta, _data -> meta}
         PREP_CONFIG_CEN(cen_meta)
         cen_model_config = PREP_CONFIG_CEN.out.config
         // combine centralized_data_and_params_ch and cen_model_config
@@ -29,7 +29,7 @@ workflow FEDERATED_LEARNING_SIMULATION{
 
 
     if (!params.skip_federated){
-        fed_meta = federated_data_and_params_ch.map{ meta, data -> meta}
+        fed_meta = federated_data_and_params_ch.map{ meta, _data -> meta}
         PREP_CONFIG_FED(fed_meta)
         fed_model_config = PREP_CONFIG_FED.out.config
 

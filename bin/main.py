@@ -42,8 +42,7 @@ def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
     if DEVICE.type == "cuda":
         ngpus = decimal.Decimal(ngpus) / nclients
         backend_config = {"client_resources": { "num_gpus": float(ngpus), "num_cpus":ncpus }}
-    elif DEVICE.type == "cpu":
-        backend_config = {"client_resources": { "num_cpus": ncpus }}
+
         
     run_simulation(
         server_app=server,
@@ -93,4 +92,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args.ncpus, args.ngpus, args.raydir, args.ray_socket_dir, args.nclients)
+    print(f"Arguments: {args}")
+    main(args.ncpus , args.ngpus, args.raydir, args.ray_socket_dir, args.nclients)
