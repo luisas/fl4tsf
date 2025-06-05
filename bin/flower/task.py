@@ -167,7 +167,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
 
     # print weights
     file_store = None
-    if(model_config["storeweigths"] == "True"):
+    if(model_config["storeweights"] == "True"):
         w = get_weights(net)
         # store them 
         random_id = str(int(torch.randint(0, 1000000, (1,)).item()))

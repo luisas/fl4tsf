@@ -15,6 +15,7 @@ workflow {
     // Take a param epochs and split it with a comma
     // These are the only parameters that we can run multiple values of
     // The rest of the parameters are set to a single value in the config file
+    def datasets        = "${params.dataset}".split(",")
     def epochs          = "${params.epochs}".split(",")
     def lr              = "${params.lr}".split(",")
     def batch_size      = "${params.batch_size}".split(",")
@@ -42,8 +43,6 @@ workflow {
         .map{
             lr_val, bs, cl, lrd->
                 [
-                    id          : "${params.dataset}",
-                    dataset_name: "${params.dataset}",
                     data_folder : ".", 
                     lr          : lr_val,
                     lrdecay     : lrd,
@@ -136,13 +135,10 @@ workflow {
     
 
     // Load dataset 
-    Channel
-        .fromPath("${projectDir}/data/${params.dataset}/*")
-        .collect()
-        .map{ dir -> 
-                [[id: "${params.dataset}"], dir]
-        }  
-        .set { training_data_ch }
+    Channel.from(datasets).map { ds ->
+            [ [id: ds, dataset_name: ds ], file("${projectDir}/data/${ds}/*")]
+        } .set { training_data_ch }
+
 
     // Load bin
     Channel

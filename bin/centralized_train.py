@@ -56,6 +56,7 @@ train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True,
 test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
     collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
+
 # train
 loss_training = train(model, train_loader, test_loader, epochs, lr=lr, device=device, loss_per_epoch=True)
 
