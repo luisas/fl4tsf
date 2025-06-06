@@ -10,7 +10,7 @@ from flower.task import (
 )
 from torch.utils.data import DataLoader
 from flwr.server.strategy import FedAvg
-
+import os
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
@@ -87,8 +87,24 @@ def server_fn(context: Context, nrounds: int = 4):
     extrap = bool(model_config["extrap"])
     data_folder = model_config["data_folder"]
 
-    # Prepare dataset for central evaluation
-    test_dataset, test_timestamps = get_dataset(dataset_name = dataset_name, type="test", data_folder=data_folder)
+    # Identify partitions 
+    partitions = {
+        "_".join(f.split("_")[:2])
+        for f in os.listdir(data_folder)
+        if f.startswith("client") and f.endswith("test.pt")
+    }
+
+    print(f"Found partitions: {sorted(partitions)}")
+
+    test_dataset = torch.cat([
+        torch.load(f"{p}_test.pt", weights_only=True) for p in partitions
+    ], dim=0)
+
+    test_timestamps = torch.cat([
+        torch.load(f"{p}_time_steps_test.pt", weights_only=True) for p in partitions
+    ], dim=0)
+
+
     testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
         collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 

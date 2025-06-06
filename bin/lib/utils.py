@@ -173,9 +173,6 @@ def cut_out_timepoints(data, time_steps, mask, n_points_to_cut = None):
 	return data, time_steps, mask
 
 
-
-
-
 def get_device(tensor):
 	device = torch.device("cpu")
 	if tensor.is_cuda:

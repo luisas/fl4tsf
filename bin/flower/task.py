@@ -4,7 +4,7 @@ import json
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-
+import os
 
 import torch
 import torch.nn as nn
@@ -202,7 +202,6 @@ def test(net, dataloader, device, kl_coef):
 
     with torch.no_grad():
         for _ in range(n_batches):
-
             batch_dict = utils.get_next_batch(dataloader)
             batch_dict = utils.move_to_device(batch_dict, device)
             res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
@@ -228,6 +227,45 @@ def set_weights(net, parameters):
 dataset = None # Cache dataset
 
 def load_data(partition_id: int, num_partitions: int, batch_size: int):
+    """Load partition of periodic dataset for federated learning."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Create the full periodic dataset
+    # 0. Create the dataset (if not already created)
+
+    global dataset
+    global time_steps_extrap
+    global basic_collate_fn
+    global sample_tp
+    global cut_tp
+    global extrap
+    global data_folder
+    global dataset_name
+
+    model_config = get_model_config(file_path="model.config")
+    dataset_name = model_config["dataset_name"]
+    sample_tp = float(model_config["sample_tp"])
+    cut_tp = None
+    extrap = False
+    data_folder = model_config["data_folder"]
+    data_folder = os.path.join(data_folder, dataset_name)
+
+    # load partitioned dataset
+    partition_name = f"client_{partition_id}"    
+    train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=True)
+    test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
+    timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
+    timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
+
+    train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, timesteps_train, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+    validation_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, timesteps_test, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+
+    return train_loader, validation_loader
+
+
+
+def load_data_randompartition(partition_id: int, num_partitions: int, batch_size: int):
     """Load partition of periodic dataset for federated learning."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Create the full periodic dataset
@@ -282,5 +320,4 @@ def create_run_dir(config: UserConfig) -> Path:
     # Save run config as json
     with open(f"{save_path}/run_config.json", "w", encoding="utf-8") as fp:
         json.dump(config, fp)
-
     return save_path, run_dir
