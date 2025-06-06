@@ -218,7 +218,7 @@ def get_next_batch(dataloader):
 	# remove the time points where there are no observations in this batch
 	non_missing_tp = torch.sum(data_dict["observed_data"],(0,2)) != 0.
 	batch_dict["observed_data"] = data_dict["observed_data"][:, non_missing_tp]
-	batch_dict["observed_tp"] = data_dict["observed_tp"][non_missing_tp]
+	batch_dict["observed_tp"] = data_dict["observed_tp"][:, non_missing_tp]
 
 
 	if ("observed_mask" in data_dict) and (data_dict["observed_mask"] is not None):
@@ -229,7 +229,7 @@ def get_next_batch(dataloader):
 
 	non_missing_tp = torch.sum(data_dict["data_to_predict"],(0,2)) != 0.
 	batch_dict["data_to_predict"] = data_dict["data_to_predict"][:, non_missing_tp]
-	batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][non_missing_tp]
+	batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][:, non_missing_tp]
 
 
 	if ("mask_predicted_data" in data_dict) and (data_dict["mask_predicted_data"] is not None):
@@ -398,8 +398,6 @@ def split_data_extrap(data_dict, dataset = ""):
 
 
 
-
-
 def split_data_interp(data_dict):
 	device = get_device(data_dict["data"])
 
@@ -480,7 +478,7 @@ def split_and_subsample_batch(data_dict, args, data_type = "train"):
 			processed_dict = split_data_extrap(data_dict, dataset = args.dataset)
 		else:
 			processed_dict = split_data_interp(data_dict)
-
+		
 	else:
 		# Test set
 		if args.extrap:
@@ -488,15 +486,19 @@ def split_and_subsample_batch(data_dict, args, data_type = "train"):
 		else:
 			processed_dict = split_data_interp(data_dict)
 
+
+	print(processed_dict["observed_mask"])
 	# add mask
 	processed_dict = add_mask(processed_dict)
+	print(processed_dict["observed_mask"].squeeze())
 
 	# Subsample points or cut out the whole section of the timeline
+	# Here is where it is decided which mask to add
 	if (args.sample_tp is not None) or (args.cut_tp is not None):
 		processed_dict = subsample_observed_data(processed_dict, 
 			n_tp_to_sample = args.sample_tp, 
 			n_points_to_cut = args.cut_tp)
-
+	print(processed_dict["observed_mask"].squeeze())
 	# if (args.sample_tp is not None):
 	# 	processed_dict = subsample_observed_data(processed_dict, 
 	# 		n_tp_to_sample = args.sample_tp)

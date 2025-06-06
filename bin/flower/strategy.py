@@ -121,8 +121,6 @@ class CustomFedAvg(FedAvg):
         return loss, metrics
 
 
-
-
     def aggregate_evaluate(self, server_round, results, failures):
         """Aggregate results from federated evaluation."""
         print(f"Results: {results}")

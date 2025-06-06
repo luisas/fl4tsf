@@ -81,12 +81,15 @@ def plot_stacked(data, **kwargs):
 
 def sample_timesteps(n_total_tp, max_t_extrap, distribution_type='uniform'):
     #time_steps = torch.linspace(0, max_t_extrap, n_total_tp)
+    n_total_tp = n_total_tp - 1  # Adjust for the initial time step at 0.0
+    if n_total_tp <= 0:
+        raise ValueError("n_total_tp must be greater than 1 to sample time steps.")
     if distribution_type == 'uniform':
         # Sample uniformly distributed time steps
         distribution = uniform.Uniform(torch.Tensor([0.0]), torch.Tensor([max_t_extrap]))
         time_steps = distribution.sample(torch.Size([n_total_tp]))[:, 0]
     elif distribution_type == 'exponential':
-        distribution = torch.distributions.Exponential(1.0)
+        distribution = torch.distributions.Exponential(3.0)
         time_steps = distribution.sample((n_total_tp,))
         time_steps = time_steps / time_steps.max() * max_t_extrap
     elif distribution_type == 'lognormal':
@@ -96,8 +99,10 @@ def sample_timesteps(n_total_tp, max_t_extrap, distribution_type='uniform'):
         time_steps = distribution.sample((n_total_tp,))
         time_steps = time_steps / time_steps.max() * max_t_extrap
     elif distribution_type == 'beta':
-        a = random.uniform(0.5, 5.0)
-        b = random.uniform(0.5, 5.0)
+        left = 1.0
+        right = 1.0
+        a = random.uniform(left,right)
+        b = random.uniform(left,right)
         distribution = torch.distributions.Beta(a, b)
         time_steps = distribution.sample((n_total_tp,))
         time_steps = time_steps * max_t_extrap
@@ -117,9 +122,28 @@ def get_dataset(amplitude, frequency, timesteps, n_samples=50, noise_weight=0, d
     ##################################################################
     # Sample a periodic function
 
+    # check if amplitude is a single value
+    if isinstance(amplitude, (int, float)):
+        init_amplitude = amplitude
+        final_amplitude = amplitude
+    elif isinstance(amplitude, (list, np.ndarray)):
+        if len(amplitude) == 2:
+            init_amplitude, final_amplitude = amplitude
+        else:
+            raise ValueError("Amplitude must be a single value or a list of two values [init_amplitude, final_amplitude].")
+    
+    if isinstance(frequency, (int, float)):
+        init_freq = frequency
+        final_freq = frequency
+    elif isinstance(frequency, (list, np.ndarray)):
+        if len(frequency) == 2:
+            init_freq, final_freq = frequency
+        else:
+            raise ValueError("Frequency must be a single value or a list of two values [init_freq, final_freq].")
+
     dataset_obj = Periodic_1d(
-        init_freq = frequency, init_amplitude = amplitude,
-        final_amplitude = amplitude, final_freq = frequency, 
+        init_freq = init_freq, init_amplitude = init_amplitude,
+        final_amplitude = final_amplitude, final_freq = final_freq, 
         z0 = 1.)
 
     ##################################################################
@@ -152,14 +176,14 @@ def get_dataset(amplitude, frequency, timesteps, n_samples=50, noise_weight=0, d
 # Create combinations of datasets
 #########################################
 
-def create_dataset_with_combinations(combinations, time_steps, n_samples_per_combination, distribution='uniform', n_total_tp=None, max_t_extrap=None):
+def create_dataset_with_combinations(combinations, time_steps, n_samples_per_combination, noise_weight = 0, distribution='uniform', n_total_tp=None, max_t_extrap=None):
     """
     Create datasets for each combination of amplitude and frequency.
     """
 
     datasets = []
     for amp, freq in combinations:
-        dataset, time_steps_extrap = get_dataset(amp, freq, time_steps, n_samples=n_samples_per_combination, distribution = distribution, n_total_tp=n_total_tp, max_t=max_t_extrap)
+        dataset, time_steps_extrap = get_dataset(amp, freq, time_steps, noise_weight=noise_weight, n_samples=n_samples_per_combination, distribution = distribution, n_total_tp=n_total_tp, max_t=max_t_extrap)
         # make amp same size as dataset
         # no tensor 
         amp = np.full((dataset.shape[0],), amp)
@@ -195,11 +219,14 @@ def merge_datasets(datasets):
 #########################################
 # Store
 #########################################
-def store_dataset(train, test, dataset_prefix, path_prefix):
+def store_dataset(train, test, dataset_prefix, path_prefix, client_prefix = None):
     """
     Store the dataset to disk.
     """
-    output_file_prefix = f"{path_prefix}/{dataset_prefix}/{dataset_prefix}"
+    if client_prefix is not None:
+        output_file_prefix = f"{path_prefix}/{dataset_prefix}/{client_prefix}"
+    else:
+        output_file_prefix = f"{path_prefix}/{dataset_prefix}/{dataset_prefix}"
     # if it doesn't exist, create the directory
     if not os.path.exists(f"{path_prefix}/{dataset_prefix}"):
         os.makedirs(f"{path_prefix}/{dataset_prefix}", exist_ok=True)
