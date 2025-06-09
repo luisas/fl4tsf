@@ -21,7 +21,7 @@ from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
-from flower.get_dataset import get_dataset, basic_collate_fn
+from flower.get_dataset import basic_collate_fn
 from flower.model_config import get_model_config
 
 def Net():
@@ -73,7 +73,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
     net.to(device)  # move model to GPU if available
     net.train()  # Set the model to training mode
     n_batches = len(trainloader)
-    optimizer = optim.Adamax(net.parameters(), lr=lr)
+    optimizer = optim.AdamW(net.parameters(), lr=lr)
 
     model_config = get_model_config(file_path="model.config")
 
@@ -186,8 +186,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         "lr": lrs
 
     }
-    if loss_per_epoch:
-        return avg_trainloss, sum(nodesolves), dict_metrics
+
     return avg_trainloss, sum(nodesolves), dict_metrics
 
 def test(net, dataloader, device, kl_coef):    
@@ -247,7 +246,6 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     cut_tp = None
     extrap = False
     data_folder = model_config["data_folder"]
-    data_folder = os.path.join(data_folder, dataset_name)
 
     # load partitioned dataset
     partition_name = f"client_{partition_id}"    
@@ -256,56 +254,59 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
     timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
 
+    # take the first element of timestep tensors
+    timesteps = timesteps_train[0]
+
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, timesteps_train, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+        collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
     validation_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, timesteps_test, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+        collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
     return train_loader, validation_loader
 
 
 
-def load_data_randompartition(partition_id: int, num_partitions: int, batch_size: int):
-    """Load partition of periodic dataset for federated learning."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Create the full periodic dataset
-    # 0. Create the dataset (if not already created)
+# def load_data_randompartition(partition_id: int, num_partitions: int, batch_size: int):
+#     """Load partition of periodic dataset for federated learning."""
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     # Create the full periodic dataset
+#     # 0. Create the dataset (if not already created)
 
-    global dataset
-    global time_steps_extrap
-    global basic_collate_fn
-    global sample_tp
-    global cut_tp
-    global extrap
-    global data_folder
-    global dataset_name
+#     global dataset
+#     global time_steps_extrap
+#     global basic_collate_fn
+#     global sample_tp
+#     global cut_tp
+#     global extrap
+#     global data_folder
+#     global dataset_name
 
-    if dataset is None:
-        model_config = get_model_config(file_path="model.config")
-        dataset_name = model_config["dataset_name"]
-        sample_tp = float(model_config["sample_tp"])
-        cut_tp = None
-        extrap = False
-        data_folder = model_config["data_folder"]
-        dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
+#     if dataset is None:
+#         model_config = get_model_config(file_path="model.config")
+#         dataset_name = model_config["dataset_name"]
+#         sample_tp = float(model_config["sample_tp"])
+#         cut_tp = None
+#         extrap = False
+#         data_folder = model_config["data_folder"]
+#         dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
 
 
-    # 1. Extract the partition
-    partition_len = len(dataset) // num_partitions
-    start = partition_id * partition_len
-    end = (partition_id + 1) * partition_len if partition_id < num_partitions - 1 else len(dataset)
-    partition_dataset = dataset[start:end, :, :]
-    if len(partition_dataset) == 0:
-        raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
+#     # 1. Extract the partition
+#     partition_len = len(dataset) // num_partitions
+#     start = partition_id * partition_len
+#     end = (partition_id + 1) * partition_len if partition_id < num_partitions - 1 else len(dataset)
+#     partition_dataset = dataset[start:end, :, :]
+#     if len(partition_dataset) == 0:
+#         raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
 
-    train_dataset, validation_dataset = utils.split_train_test(partition_dataset, train_fraq = 0.8)
+#     train_dataset, validation_dataset = utils.split_train_test(partition_dataset, train_fraq = 0.8)
 
-    train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
-    validation_loader = DataLoader(validation_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+#     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
+#         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+#     validation_loader = DataLoader(validation_dataset, batch_size = batch_size, shuffle=False,
+#         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
-    return train_loader, validation_loader
+#     return train_loader, validation_loader
 
 
 def create_run_dir(config: UserConfig) -> Path:

@@ -12,7 +12,6 @@ workflow {
 
     main:
 
-    // Take a param epochs and split it with a comma
     // These are the only parameters that we can run multiple values of
     // The rest of the parameters are set to a single value in the config file
     def datasets        = "${params.dataset}".split(",")
@@ -31,8 +30,6 @@ workflow {
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
     def replicate       = (1..Integer.parseInt("${params.replicate}")).collect { it.toString() }
-
-
 
     // General parameters 
     Channel

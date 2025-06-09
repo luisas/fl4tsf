@@ -1,6 +1,5 @@
 
 import os
-
 from torch.utils.data import DataLoader
 from flower.get_dataset import get_dataset, basic_collate_fn
 from lib import utils
@@ -8,6 +7,8 @@ from lib.latent_ode import LatentODE
 from lib.plot import plot_trajectories
 import matplotlib.pyplot as plt
 import torch
+
+
 def plot_n_outputs(model, dataset, timestamps, n = 3, id = 10):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"

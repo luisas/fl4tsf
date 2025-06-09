@@ -14,7 +14,7 @@ import os
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
-from flower.get_dataset import get_dataset, basic_collate_fn
+from flower.get_dataset import basic_collate_fn
 import lib.utils as utils
 from flower.model_config import get_model_config
 
@@ -42,9 +42,9 @@ def on_fit_config(server_round: int):
     lr = float(model_config["lr"])
     decay_onset = int(model_config["decay_onset"])
     # Enable a simple form of learning rate decay
-    if server_round > decay_onset:
-        # Reduce learning rate by 10% for each round after the first
-        lr /= 10
+    # if server_round > decay_onset:
+    #     # Reduce learning rate by 10% for each round after the first
+    #     lr /= 10
     return {"lr": lr}
 
 
@@ -87,6 +87,8 @@ def server_fn(context: Context, nrounds: int = 4):
     extrap = bool(model_config["extrap"])
     data_folder = model_config["data_folder"]
 
+
+
     # Identify partitions 
     partitions = {
         "_".join(f.split("_")[:2])
@@ -95,6 +97,12 @@ def server_fn(context: Context, nrounds: int = 4):
     }
 
     print(f"Found partitions: {sorted(partitions)}")
+    # test_dataset = torch.cat([
+    #     torch.load( os.path.join(data_folder,f"{p}_test.pt"), weights_only=True) for p in partitions
+    # ], dim=0)
+    # test_timestamps = torch.cat([
+    #     torch.load( os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
+    # ], dim=0)
 
     test_dataset = torch.cat([
         torch.load(f"{p}_test.pt", weights_only=True) for p in partitions
@@ -103,7 +111,8 @@ def server_fn(context: Context, nrounds: int = 4):
     test_timestamps = torch.cat([
         torch.load(f"{p}_time_steps_test.pt", weights_only=True) for p in partitions
     ], dim=0)
-
+    test_timestamps =  test_timestamps[0]
+    print(f"Test timestamps shape: {test_timestamps.shape}")    
 
     testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
         collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))

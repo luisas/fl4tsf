@@ -16,13 +16,12 @@ process FEDERATED_TRAINING {
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
     path("federated_outputs/meta.csv")               , emit: meta_csv
-    path("*.pt")                                     , emit: weights
+    path("*.pt")                                     , emit: weights, optional: true
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''
     def keys = meta.keySet().join(",")
     def values = meta.values().join(",")
     """
@@ -37,7 +36,7 @@ process FEDERATED_TRAINING {
     export RAY_object_store_memory=10737418240
     mkdir -p "\$RAY_SOCKET_DIR"
 
-    python main.py --ncpus 3 --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
+    python main.py --ncpus ${task.cpus} --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
 
     # Store a file with all the meta information
     echo "$keys" > meta.csv

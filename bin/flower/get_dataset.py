@@ -6,23 +6,6 @@ from types import SimpleNamespace
 from lib import utils
 import os
 
-def get_dataset(dataset_name, type, data_folder = None):
-    """
-    Load the dataset from the specified folder.
-    """
-    
-    # Load the dataset
-    if data_folder is not None:
-        dataset = torch.load(os.path.join(data_folder, f"{dataset_name}_{type}.pt"), weights_only=True)
-        timestamps = torch.load(os.path.join(data_folder, f"{dataset_name}_time_steps.pt"), weights_only=True)
-    else:
-        dataset = torch.load(f"{dataset_name}_{type}.pt", weights_only=True)
-        timestamps = torch.load(f"{dataset_name}_time_steps.pt", weights_only=True)
-    
-    return dataset, timestamps
-
-
-
 
 def basic_collate_fn(batch, time_steps, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"):
 

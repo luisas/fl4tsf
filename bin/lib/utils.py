@@ -215,8 +215,8 @@ def get_next_batch(dataloader):
 	# remove the time points where there are no observations in this batch
 	non_missing_tp = torch.sum(data_dict["observed_data"],(0,2)) != 0.
 	batch_dict["observed_data"] = data_dict["observed_data"][:, non_missing_tp]
-	batch_dict["observed_tp"] = data_dict["observed_tp"][:, non_missing_tp]
-
+	# batch_dict["observed_tp"] = data_dict["observed_tp"][:, non_missing_tp] TODO
+	batch_dict["observed_tp"] = data_dict["observed_tp"][non_missing_tp]
 
 	if ("observed_mask" in data_dict) and (data_dict["observed_mask"] is not None):
 		batch_dict["observed_mask"] = data_dict["observed_mask"][:, non_missing_tp]
@@ -226,8 +226,8 @@ def get_next_batch(dataloader):
 
 	non_missing_tp = torch.sum(data_dict["data_to_predict"],(0,2)) != 0.
 	batch_dict["data_to_predict"] = data_dict["data_to_predict"][:, non_missing_tp]
-	batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][:, non_missing_tp]
-
+	#batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][:, non_missing_tp] TODO
+	batch_dict["tp_to_predict"] = data_dict["tp_to_predict"][ non_missing_tp]
 
 	if ("mask_predicted_data" in data_dict) and (data_dict["mask_predicted_data"] is not None):
 		batch_dict["mask_predicted_data"] = data_dict["mask_predicted_data"][:, non_missing_tp]
@@ -484,10 +484,8 @@ def split_and_subsample_batch(data_dict, args, data_type = "train"):
 			processed_dict = split_data_interp(data_dict)
 
 
-	print(processed_dict["observed_mask"])
 	# add mask
 	processed_dict = add_mask(processed_dict)
-	print(processed_dict["observed_mask"].squeeze())
 
 	# Subsample points or cut out the whole section of the timeline
 	# Here is where it is decided which mask to add
@@ -495,7 +493,6 @@ def split_and_subsample_batch(data_dict, args, data_type = "train"):
 		processed_dict = subsample_observed_data(processed_dict, 
 			n_tp_to_sample = args.sample_tp, 
 			n_points_to_cut = args.cut_tp)
-	print(processed_dict["observed_mask"].squeeze())
 	# if (args.sample_tp is not None):
 	# 	processed_dict = subsample_observed_data(processed_dict, 
 	# 		n_tp_to_sample = args.sample_tp)
@@ -623,3 +620,69 @@ def move_to_device(data_dict, device):
 	return data_dict
 
 
+def read_loss_file(file):
+    # Read the meta.csv file
+    meta_file = file.replace("results.json", "meta.csv")
+    meta_data = pd.read_csv(meta_file)
+    lr = meta_data['lr'].item()
+    batch_size = meta_data['batch_size'].item()
+    clipping = meta_data['gradientclipping'].item()
+    lrdecay = meta_data['lrdecay'].item()
+    nlocalepochs = meta_data['localepochs'].item()
+    
+    # Read the results.json file
+    with open(file, 'r') as f:
+        data = json.load(f)
+    
+    # Plot centralized evaluate
+    df_centralized_evaluate = pd.DataFrame(data['centralized_evaluate'])
+    df_federated_evaluate = pd.DataFrame(data['federated_evaluate'])
+    # Add the learning rate to the DataFrame
+    df_federated_evaluate['lr'] = lr
+    df_centralized_evaluate['lr'] = lr
+    # Add the batch size to the DataFrame
+    df_federated_evaluate['batch_size'] = batch_size
+    df_centralized_evaluate['batch_size'] = batch_size
+    # Add the clipping to the DataFrame
+    df_federated_evaluate['clipping'] = clipping
+    df_centralized_evaluate['clipping'] = clipping
+    # add decay
+    df_federated_evaluate['lrdecay'] = lrdecay
+    df_centralized_evaluate['lrdecay'] = lrdecay
+    # add nlocalepochs
+    df_federated_evaluate['localepochs'] = nlocalepochs
+    df_centralized_evaluate['localepochs'] = nlocalepochs
+    # add decay onset 
+    df_federated_evaluate['decay_onset'] = meta_data['decay_onset'].item()
+    df_centralized_evaluate['decay_onset'] = meta_data['decay_onset'].item()
+
+    # alpha
+    df_federated_evaluate['alpha'] = meta_data['alpha'].item()
+    df_centralized_evaluate['alpha'] = meta_data['alpha'].item()
+
+    # Aggregation column 
+    # Check if file contins "FedAvg" in the path name
+    if "FedAvg" in file:
+        # if the path name contains "FedAvg" then add aggregation column "FedAvg"
+        df_federated_evaluate['aggregation'] = "FedAvg"
+        df_centralized_evaluate['aggregation'] = "FedAvg"
+    else:
+        # if the path name does not contain "FedAvg" then add aggregation column "FedProx"
+        df_federated_evaluate['aggregation'] = "FedODE"
+        df_centralized_evaluate['aggregation'] = "FedODE"
+
+
+    # if the path name contains "FedAvg" then add aggregation column "FedAvg"
+    df_federated_evaluate['hyperparameters'] = df_federated_evaluate.apply(lambda x: f"lr: {x['lr']}, batch_size: {x['batch_size']}, clipping: {x['clipping']}, lrdecay: {x['lrdecay']}, nlocalepochs: {x['localepochs']}", axis=1)
+    df_centralized_evaluate['hyperparameters'] = df_centralized_evaluate.apply(lambda x: f"lr: {x['lr']}, batch_size: {x['batch_size']}, clipping: {x['clipping']}, lrdecay: {x['lrdecay']}, nlocalepochs: {x['localepochs']}", axis=1)
+    # combine lr, batch size and clipping into one column
+
+    df_federated_evaluate['type'] = "federated"
+    df_centralized_evaluate['type'] = "centralized"
+
+    # modify centralized_loss into loss
+    df_centralized_evaluate.rename(columns={'centralized_loss': 'loss'}, inplace=True)
+    # modify federated_loss into loss
+    df_federated_evaluate.rename(columns={'federated_evaluate_loss': 'loss'}, inplace=True)
+
+    return df_centralized_evaluate, df_federated_evaluate

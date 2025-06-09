@@ -1,6 +1,11 @@
 # FL4TSF
 
 
+main pipeline:
+```
+main.nf
+```
+
 ## analysis notebook 
 
 #### 1 - generate simulated dataset

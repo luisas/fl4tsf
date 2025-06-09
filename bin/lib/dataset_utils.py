@@ -252,10 +252,10 @@ def store_dataset(train, test, dataset_prefix, path_prefix, client_prefix = None
          torch.save(train['time_steps'][0], f)
     
     # print message with colors
-    print("\033[92mPeriodic dataset created and saved to disk.\033[0m")
-    print(f"{output_file_prefix}_train.pt")
-    print(f"{output_file_prefix}_test.pt")
-    print(f"{output_file_prefix}_time_steps.pt")
+    # print("\033[92mPeriodic dataset created and saved to disk.\033[0m")
+    # print(f"{output_file_prefix}_train.pt")
+    # print(f"{output_file_prefix}_test.pt")
+    # print(f"{output_file_prefix}_time_steps.pt")
 
 
 def split_train_test_with_meta(full_dataset, train_fraq = 0.8):
@@ -268,7 +268,6 @@ def split_train_test_with_meta(full_dataset, train_fraq = 0.8):
 	freqs = torch.tensor(freqs)[indices]
 	time_steps = time_steps[indices]
 	# time_steps is already sorted, so we don't shuffle it
-
 	n_samples = data.size(0)
 	# amps
 	data_train = data[:int(n_samples * train_fraq)]
