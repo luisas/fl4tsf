@@ -1,19 +1,10 @@
-
-
 include {  FEDERATED_LEARNING_SIMULATION } from './workflows/federated_learning_simulation.nf'
-
-
-
-// Create a dummy meta channel
-
 
 workflow {
 
-
     main:
 
-    // These are the only parameters that we can run multiple values of
-    // The rest of the parameters are set to a single value in the config file
+    // Split the input values of the parameters that support multiple values
     def datasets        = "${params.dataset}".split(",")
     def epochs          = "${params.epochs}".split(",")
     def lr              = "${params.lr}".split(",")
@@ -26,7 +17,6 @@ workflow {
     def lrdecay         = "${params.lrdecay}".split(",")
     def localepochs     = "${params.localepochs}".split(",")
     def decay_onset     = "${params.decay_onset}".split(",")
-
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
     def replicate       = (1..Integer.parseInt("${params.replicate}")).collect { it.toString() }
@@ -85,7 +75,6 @@ workflow {
         ])
         .set { meta_model_params }
 
-
     // Federated meta channel
     Channel
         .of(serverrounds)
@@ -113,7 +102,7 @@ workflow {
             })
         .set { meta_federated }
 
-
+    // Prepare meta for centralized training
     meta_general
         .combine(meta_model_params)
         .combine(meta_centralized)
@@ -122,6 +111,7 @@ workflow {
         }
         .set { meta_centralized }
     
+    // Prepare meta for federated training
     meta_general
         .combine(meta_model_params)
         .combine(meta_federated)
@@ -130,7 +120,6 @@ workflow {
         }
         .set { meta_federated }
     
-
     // Load dataset 
     Channel.from(datasets).map { ds ->
             [ [id: ds, dataset_name: ds ], file("${projectDir}/data/${ds}/*")]
@@ -144,14 +133,12 @@ workflow {
         .collect()
         .set { bin_ch }
 
-
     // Prepare centralized training data
     training_data_ch.combine(meta_centralized)
         .map{ meta, data, meta2 -> 
                 [meta + meta2, data]
         }
         .set { centralized_data_and_params_ch }
-
 
     // Prepare federated training data
     training_data_ch.combine(meta_federated)
