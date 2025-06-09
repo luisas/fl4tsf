@@ -120,10 +120,18 @@ workflow {
         }
         .set { meta_federated }
     
-    // Load dataset 
-    Channel.from(datasets).map { ds ->
-            [ [id: ds, dataset_name: ds ], file("${projectDir}/data/${ds}/*")]
-        } .set { training_data_ch }
+
+    Channel
+        .from(datasets)
+        .map { ds ->
+            def files = file("${projectDir}/data/${ds}*/*")
+            def grouped = files.groupBy { f -> f.getParent().getName() }
+            return grouped.collect { id, fileList ->
+                [ [id: id, dataset_name: id], fileList ]
+            }
+        }
+        .flatMap()
+        .set { training_data_ch }
 
 
     // Load bin

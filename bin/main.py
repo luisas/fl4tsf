@@ -37,11 +37,23 @@ def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
 
     client = ClientApp(client_fn)
     server = ServerApp(server_fn=server_fn )
+    cpus_per_client = ncpus // nclients
 
-    backend_config = {"client_resources": None}
     if DEVICE.type == "cuda":
-        ngpus = decimal.Decimal(ngpus) / nclients
-        backend_config = {"client_resources": { "num_gpus": float(ngpus), "num_cpus":ncpus }}
+        gpus_per_client = ngpus / nclients  # can be float if fractional GPUs supported
+        backend_config = {
+            "client_resources": {
+                "num_cpus": cpus_per_client,
+                "num_gpus": gpus_per_client
+            }
+        }
+    else:
+        backend_config = {
+            "client_resources": {
+                "num_cpus": cpus_per_client
+            }
+        }
+
 
         
     run_simulation(
