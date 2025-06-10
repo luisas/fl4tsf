@@ -2,7 +2,7 @@
 
 process CENTRALIZED_TRAINING {
     tag "$meta.id"
-    label 'process_low'
+    label "process_medium"
     
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'oras://community.wave.seqera.io/library/pip_flwr-datasets_flwr_numpy_pruned:527707828ce78fbf' :

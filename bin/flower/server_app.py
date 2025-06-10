@@ -88,7 +88,6 @@ def server_fn(context: Context, nrounds: int = 4):
     data_folder = model_config["data_folder"]
 
 
-
     # Identify partitions 
     partitions = {
         "_".join(f.split("_")[:2])
@@ -104,12 +103,16 @@ def server_fn(context: Context, nrounds: int = 4):
     #     torch.load( os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
     # ], dim=0)
 
+    print(f"Loading test dataset from {data_folder}...")
+    print(f"Partitions: {partitions}")
+
+
     test_dataset = torch.cat([
-        torch.load(f"{p}_test.pt", weights_only=True) for p in partitions
+        torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
     ], dim=0)
 
     test_timestamps = torch.cat([
-        torch.load(f"{p}_time_steps_test.pt", weights_only=True) for p in partitions
+        torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
     ], dim=0)
     test_timestamps =  test_timestamps[0]
     print(f"Test timestamps shape: {test_timestamps.shape}")    

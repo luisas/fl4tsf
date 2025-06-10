@@ -152,7 +152,6 @@ def get_dataset(amplitude, frequency, timesteps, n_samples=50, noise_weight=0, d
     # if timesteps is None and max_t is not None and n_total_tp is not None:
     dataset = None
     if timesteps is None and max_t is not None and n_total_tp is not None:
-        #print(f"Sampling {n_samples} samples with {n_total_tp} time points and max_t={max_t}")
         dataset = []
         all_timesteps = []
         for i in range(n_samples):
@@ -163,7 +162,6 @@ def get_dataset(amplitude, frequency, timesteps, n_samples=50, noise_weight=0, d
         dataset = torch.cat(dataset, dim=0)
         all_timesteps = torch.stack(all_timesteps, dim=0)
     elif timesteps is not None and max_t is None and n_total_tp is None:
-        #print(f"Sampling {n_samples} samples with provided timesteps")
         dataset = dataset_obj.sample_traj(timesteps, n_samples = n_samples, noise_weight = noise_weight)
         all_timesteps = timesteps.unsqueeze(0).repeat(n_samples, 1)
     else:

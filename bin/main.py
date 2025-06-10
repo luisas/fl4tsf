@@ -21,8 +21,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
     
     print("Starting Flower server...")
-    # print the device 
     print(f"Using device: {DEVICE}")
+
+    
     
     # Initialize Ray with explicit socket paths
     ray.init(
@@ -62,10 +63,11 @@ def main(ncpus = 0, ngpus=0, raydir = None, ray_socket_dir=None, nclients = 2):
         backend_config=backend_config,
         num_supernodes =nclients,
     )
-            
+
     ray.shutdown()
-
-
+    print("Flower server has been shut down.")
+    
+            
 
 
 if __name__ == "__main__": 

@@ -1,4 +1,7 @@
 process PREPARE_MODEL_CONFIG {
+
+    label "process_mini"
+
     input:
     val(meta)
 

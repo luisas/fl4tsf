@@ -1,5 +1,7 @@
 
 process FEDERATED_TRAINING {
+
+    label "process_medium"
     tag "$meta.id - ${meta.aggregation}"
     
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -27,8 +29,10 @@ process FEDERATED_TRAINING {
     """
     export MPLCONFIGDIR=\$PWD/.mplconfig
     export PYTHONUNBUFFERED=1
-
-
+    export RAY_LOG_TO_STDERR=0
+    export RAY_LOG_TO_FILE=1
+    export RAY_LOG_DIR="./ray_logs"
+    ulimit -u 100000
     # Setup Ray environment
     export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
     mkdir -p "\$RAY_TMPDIR"
@@ -38,6 +42,9 @@ process FEDERATED_TRAINING {
 
     python main.py --ncpus ${task.cpus} --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
 
+    # sleep to ensure all files are written
+    sleep 10
+    
     # Store a file with all the meta information
     echo "$keys" > meta.csv
     echo "$values" >> meta.csv

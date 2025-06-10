@@ -133,7 +133,6 @@ workflow {
         .flatMap()
         .set { training_data_ch }
 
-
     // Load bin
     Channel
         .fromPath("${projectDir}/bin/*", type: 'any')
