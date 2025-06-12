@@ -65,16 +65,19 @@ loss_training = train(model, train_loader, test_loader, epochs, lr=lr, device=de
 torch.save(model.state_dict(), "model.pth")
 
 # #######################################
-# # Store files
+# Store files
 # #######################################
 
-avg_loss, _, metric_dict = loss_training
+avg_loss, nodesolves, metric_dict = loss_training
 train_loss = metric_dict["train_loss"]
 train_mse = metric_dict["train_mse"]
 val_loss = metric_dict["val_loss"]
 val_mse = metric_dict["val_mse"]
 
-df = pd.DataFrame({"train_loss": train_loss, "train_mse": train_mse, "val_loss": val_loss, "val_mse": val_mse})
+print("Nodesolves:", nodesolves)
+print("Train loss:", train_loss)
+
+df = pd.DataFrame({"train_loss": train_loss, "train_mse": train_mse, "val_loss": val_loss, "val_mse": val_mse, "nodesolves": nodesolves})
 
 # if output_dir does not exist, create it
 if not os.path.exists(args.output_dir):

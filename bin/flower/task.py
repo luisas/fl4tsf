@@ -86,6 +86,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
 
     # Track the number of steps that the solver has taken
     nodesolves = []
+    nodesolves_epoch = []
     trainloader = utils.inf_generator(trainloader)
 
     # So that we can use the same kl_coef for training and testing
@@ -139,10 +140,13 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         kl_first_p = train_res["kl_first_p"].item()
         std_first_p = train_res["std_first_p"].item()
         nodesolve = train_res["nodesolve"]
-        running_loss += loss
         nodesolves.append(nodesolve)
+        running_loss += loss
+        
 
         if itr % n_batches == 0:
+            nodesolves_epoch.append(sum(nodesolves))
+            nodesolves = []
             if loss_per_epoch:
                 epoch_loss.append(loss)
                 epoch_mse.append(mse)
@@ -184,8 +188,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         "lr": lrs
 
     }
-
-    return avg_trainloss, sum(nodesolves), dict_metrics
+    return avg_trainloss, nodesolves_epoch, dict_metrics
 
 def test(net, dataloader, device, kl_coef):    
     """Validate the model on the test set."""
