@@ -8,11 +8,6 @@ from __future__ import absolute_import, division
 from __future__ import print_function
 import os
 import matplotlib
-if os.path.exists("/Users/yulia"):
-	matplotlib.use('TkAgg')
-else:
-	matplotlib.use('Agg')
-
 import numpy as np
 import numpy.random as npr
 from scipy.special import expit as sigmoid
@@ -48,7 +43,6 @@ def generate_periodic(time_steps, init_freq, init_amplitude, starting_point,
 		amp = get_next_val(init_amplitude, t, tmin, tmax, final_amplitude)
 		freq = get_next_val(init_freq, t, tmin, tmax, final_freq)
 		phi = phi + 2 * np.pi * freq * dt # integrate to get phase
-
 		y = amp * np.sin(phi) + starting_point
 		t_prev = t
 		data.append([t,y])

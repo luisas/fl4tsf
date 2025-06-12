@@ -5,7 +5,6 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 import os
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,7 +12,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from types import SimpleNamespace
 from flwr.common.typing import UserConfig
-
 from lib.rnn_baselines import *
 from lib.ode_rnn import *
 from lib.create_latent_ode_model import create_LatentODE_model

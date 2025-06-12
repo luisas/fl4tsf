@@ -18,7 +18,7 @@ process FEDERATED_TRAINING {
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
     path("federated_outputs/meta.csv")               , emit: meta_csv
-    path("*.pt")                                     , emit: weights, optional: true
+    path("weights*.pt")                              , emit: weights, optional: true
 
     when:
     task.ext.when == null || task.ext.when
