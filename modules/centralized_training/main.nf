@@ -13,8 +13,8 @@ process CENTRALIZED_TRAINING {
     path(config)
 
     output:
-    tuple val(meta), path("*.csv"), emit: metrics
-    tuple val(meta), path("*.pth"), emit: model
+    tuple val(meta), path("*.csv")  , emit: metrics
+    tuple val(meta), path("*.pth")  , emit: model
     path("meta.csv")                , emit: meta_csv
 
     when:
@@ -29,7 +29,8 @@ process CENTRALIZED_TRAINING {
                          --lr ${meta.lr} \\
                          --batch_size ${meta.batch_size} \\
                          --dataset ${meta.id} \\
-                         --sample_tp ${meta.sample_tp}
+                         --sample_tp ${meta.sample_tp} \\
+                         --dataset_name ${meta.dataset_name}
 
     # data in the current directory
     echo "$keys" > meta.csv

@@ -133,6 +133,36 @@ workflow {
         .flatMap()
         .set { training_data_ch }
 
+
+    // separate the training data by client (each of the files in it[1] contains client_{n}_)
+    // Assuming your channel is called input_ch
+    training_data_ch
+        .map { meta, files ->
+            // Group files by client
+            def client_files = [:]
+            files.each { file ->
+                def filename = file.name
+                def client_match = filename =~ /(client_\d+)/
+                if (client_match) {
+                    def client_id = client_match[0][1]
+                    if (!client_files.containsKey(client_id)) {
+                        client_files[client_id] = []
+                    }
+                    client_files[client_id] << file
+                }
+            }
+            return [meta, client_files]
+        }
+        .flatMap { meta, client_files ->
+            // Create separate entries for each client
+            client_files.collect { client_id, files ->
+                def new_meta = meta + [dataset_name: client_id]
+                [new_meta, files]
+            }
+        }
+        .set { training_data_clients_ch }
+
+
     // Load bin
     Channel
         .fromPath("${projectDir}/bin/*", type: 'any')
@@ -147,6 +177,13 @@ workflow {
         }
         .set { centralized_data_and_params_ch }
 
+    // Prepare centralized training data
+    training_data_clients_ch.combine(meta_centralized)
+        .map{ meta, data, meta2 -> 
+                [meta + meta2, data]
+        }
+        .set { centralized_data_and_params_local_ch }
+
     // Prepare federated training data
     training_data_ch.combine(meta_federated)
         .map{ meta, data, meta2 -> 
@@ -154,6 +191,6 @@ workflow {
         }
         .set { federated_data_and_params_ch }
 
-    FEDERATED_LEARNING_SIMULATION(centralized_data_and_params_ch, federated_data_and_params_ch, bin_ch)
+    FEDERATED_LEARNING_SIMULATION(centralized_data_and_params_ch,centralized_data_and_params_local_ch, federated_data_and_params_ch, bin_ch)
 
 }

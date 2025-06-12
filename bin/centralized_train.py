@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from flower.task import Net, load_data, train, test
-from flower.get_dataset import get_dataset, basic_collate_fn
+from flower.get_dataset import basic_collate_fn
 
 
 
@@ -45,12 +45,13 @@ print(f"Using device: {device}")
 # Initialize model and load data
 model = Net()
 
-train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=True)
-time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps.pt", weights_only=True)
-test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=True)
+train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=False)
+time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps_train.pt", weights_only=False)
+test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=False)
+time_steps_extrap = time_steps_extrap[0]
 
+ 
 # train dataset 
-
 train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True,
     collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
 test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,

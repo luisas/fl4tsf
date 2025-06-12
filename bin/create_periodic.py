@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 import torch
 from torch.utils.data import DataLoader
 from lib.parse_datasets import parse_datasets
