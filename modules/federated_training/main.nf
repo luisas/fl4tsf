@@ -32,7 +32,7 @@ process FEDERATED_TRAINING {
     export RAY_LOG_TO_STDERR=0
     export RAY_LOG_TO_FILE=1
     export RAY_LOG_DIR="./ray_logs"
-    ulimit -u 100000
+    #ulimit -u 100000
     # Setup Ray environment
     export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
     mkdir -p "\$RAY_TMPDIR"

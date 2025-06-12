@@ -25,6 +25,7 @@ def merge_datasets(data_type, prefix='merged'):
         print(f'No datasets found for {data_type}.')
     
 def main():
+    
     parser = argparse.ArgumentParser(description='Merge train and test datasets.')
     parser.add_argument('--prefix', type=str, default='merged', help='Prefix for merged dataset files')
     args = parser.parse_args()
