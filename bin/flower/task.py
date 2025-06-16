@@ -21,12 +21,13 @@ from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
 from flower.get_dataset import basic_collate_fn
 from flower.model_config import get_model_config
+from lib.physionet import variable_time_collate_fn
 
 def Net():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_config = get_model_config(file_path="model.config")
-
+    print("Model configuration:", model_config)
     obsrv_std = float(model_config["obsrv_std"])
     poisson = model_config["poisson"] == "True"
     rec_layers = int(model_config["rec_layers"])
@@ -145,12 +146,12 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         
 
         if itr % n_batches == 0:
-            nodesolves_epoch.append(sum(nodesolves))
+            nodesolves_epoch.append(sum(nodesolves)/len(nodesolves))
             nodesolves = []
             if loss_per_epoch:
                 epoch_loss.append(loss)
                 epoch_mse.append(mse)
-            print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
+            #print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
             # store the weights of the model
             if decay_rate < 1.0 and itr > 1:    
                 utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr/10)
@@ -160,22 +161,26 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
                 val_l, val_m = test(net, valloader, device, kl_coef=kl_coef)
                 val_loss.append(val_l)
                 val_mse.append(val_m)
-                print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
-            # print learnging rate
-            for param_group in optimizer.param_groups:
-                print(f"Learning rate: {param_group['lr']:.4f}")
+                #print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
+            # # print learnging rate
+            # for param_group in optimizer.param_groups:
+            #     print(f"Learning rate: {param_group['lr']:.4f}")
 
     avg_trainloss = running_loss/n_batches
 
     # print weights
     file_store = None
-    if(model_config["storeweights"] == "True"):
+    print(model_config["storeweights"])
+    if(model_config["storeweights"] == "True" or model_config["storeweights"] == True):
+        
         w = get_weights(net)
-        # store them 
         random_id = str(int(torch.randint(0, 1000000, (1,)).item()))
         file_store = f"weights_{random_id}.pt"
+        print("Storing weights...{}".format(file_store))
+        #store also grad norms
+        grad_norms = OrderedDict(grad_norms)
+        torch.save(grad_norms, f"grad_norms_{random_id}.json")
         torch.save(w, file_store)
-    
     
     dict_metrics = {
         "train_loss": epoch_loss,
@@ -186,8 +191,8 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         "weights": file_store,
         "grad_norms": grad_norms,
         "lr": lrs
-
     }
+    
     return avg_trainloss, nodesolves_epoch, dict_metrics
 
 def test(net, dataloader, device, kl_coef):    
@@ -249,19 +254,39 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     data_folder = model_config["data_folder"]
 
     # load partitioned dataset
-    partition_name = f"client_{partition_id}"    
+    partition_name = f"client_{partition_id}"
+
     train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=True)
     test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
-    timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
-    timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
 
-    # take the first element of timestep tensors
-    timesteps = timesteps_train[0]
+    if dataset_name == "physionet":
 
-    train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
-    validation_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+        print("Loading Physionet dataset...")
+        from types import SimpleNamespace
+        args = SimpleNamespace()
+        args.sample_tp = sample_tp
+        args.cut_tp = cut_tp
+        args.extrap = extrap
+        data_min = torch.load(os.path.join(data_folder, f"{partition_name}_data_min.pt"), weights_only=True)
+        data_max = torch.load(os.path.join(data_folder, f"{partition_name}_data_max.pt"), weights_only=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,
+            collate_fn=lambda batch: variable_time_collate_fn(batch, model_config, device, data_type="train",
+                                                              data_min=data_min, data_max=data_max))
+        validation_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
+            collate_fn=lambda batch: variable_time_collate_fn(batch, model_config, device, data_type="test",
+                                                              data_min=data_min, data_max=data_max))
+
+    else:    
+        print("Loading dataset...")
+        timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
+        timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
+        # take the first element of timestep tensors
+        timesteps = timesteps_train[0]
+
+        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
+            collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+        validation_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
+            collate_fn= lambda batch: basic_collate_fn(batch, timesteps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
     return train_loader, validation_loader
 

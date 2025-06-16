@@ -24,7 +24,9 @@ class GRU_unit(nn.Module):
 		n_units = 100,
 		device = torch.device("cpu")):
 		super(GRU_unit, self).__init__()
-
+		print(latent_dim)
+		print(input_dim)
+		print(n_units)
 		if update_gate is None:
 			self.update_gate = nn.Sequential(
 			   nn.Linear(latent_dim * 2 + input_dim, n_units),
@@ -69,7 +71,6 @@ class GRU_unit(nn.Module):
 		new_y_std = (1-update_gate) * new_state_std + update_gate * y_std
 
 		assert(not torch.isnan(new_y).any())
-
 		if masked_update:
 			# IMPORTANT: assumes that x contains both data and mask
 			# update only the hidden states for hidden state only if at least one feature is present for the current time point
@@ -123,12 +124,10 @@ class Encoder_z0_RNN(nn.Module):
 
 	def forward(self, data, time_steps, run_backwards = True):
 		# IMPORTANT: assumes that 'data' already has mask concatenated to it 
-
 		# data shape: [n_traj, n_tp, n_dims]
 		# shape required for rnn: (seq_len, batch, input_size)
 		# t0: not used here
 		n_traj = data.size(0)
-
 		assert(not torch.isnan(data).any())
 		assert(not torch.isnan(time_steps).any())
 
@@ -176,7 +175,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 		n_gru_units = 100, 
 		device = torch.device("cpu")):
 		super(Encoder_z0_ODE_RNN, self).__init__()
-
 		if z0_dim is None:
 			self.z0_dim = latent_dim
 		else:
@@ -218,7 +216,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 			last_yi, last_yi_std = self.GRU_update(prev_y, prev_std, xi)
 			extra_info = None
 		else:
-			
 			last_yi, last_yi_std, _, extra_info = self.run_odernn(
 				data, time_steps, run_backwards = run_backwards,
 				save_info = save_info)
@@ -231,7 +228,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 
 		if save_info:
 			self.extra_info = extra_info
-
 		return mean_z0, std_z0
 
 
@@ -294,7 +290,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
 
 			yi_ode = ode_sol[:, :, -1, :]
 			xi = data[:,i,:].unsqueeze(0)
-			
+
 			yi, yi_std = self.GRU_update(yi_ode, prev_std, xi)
 
 			prev_y, prev_std = yi, yi_std			

@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from flower.task import Net, load_data, train, test
 from flower.get_dataset import basic_collate_fn
+from lib.physionet import variable_time_collate_fn
 
 
 
@@ -46,16 +47,30 @@ print(f"Using device: {device}")
 model = Net()
 
 train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=False)
-time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps_train.pt", weights_only=False)
 test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=False)
-time_steps_extrap = time_steps_extrap[0]
 
- 
-# train dataset 
-train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True,
-    collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
-test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-    collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+if args.dataset == "physionet":
+    from types import SimpleNamespace
+    args = SimpleNamespace()
+    args.sample_tp = sample_tp
+    args.cut_tp = None
+    args.extrap = None
+    data_min = torch.load(f"{data_folder}/{dataset_name}_data_min.pt", weights_only=False)
+    data_max = torch.load(f"{data_folder}/{dataset_name}_data_max.pt", weights_only=False)
+    train_loader = DataLoader(train_dataset, batch_size= batch_size, shuffle=False, 
+        collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "train",
+            data_min = data_min, data_max = data_max))
+    test_loader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
+        collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "test",
+            data_min = data_min, data_max = data_max))
+else:
+    time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps_train.pt", weights_only=False)
+    time_steps_extrap = time_steps_extrap[0]
+    # train dataset 
+    train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True,
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+    test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
 
 # train

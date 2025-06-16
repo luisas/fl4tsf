@@ -217,6 +217,26 @@ def merge_datasets(datasets):
 #########################################
 # Store
 #########################################
+
+def store_dataset_physionet(train, test, dataset_prefix, path_prefix, client_prefix = None):
+    """
+    Store the dataset to disk.
+    """
+    if client_prefix is not None:
+        output_file_prefix = f"{path_prefix}/{dataset_prefix}/{client_prefix}"
+    else:
+        output_file_prefix = f"{path_prefix}/{dataset_prefix}/{dataset_prefix}"
+    # if it doesn't exist, create the directory
+    if not os.path.exists(f"{path_prefix}/{dataset_prefix}"):
+        os.makedirs(f"{path_prefix}/{dataset_prefix}", exist_ok=True)
+
+    # save the dataset to a file
+    with open(f"{output_file_prefix}_train.pt", "wb") as f:
+        torch.save(train, f)
+    with open(f"{output_file_prefix}_test.pt", "wb") as f:
+        torch.save(test, f)
+
+
 def store_dataset(train, test, dataset_prefix, path_prefix, client_prefix = None):
     """
     Store the dataset to disk.

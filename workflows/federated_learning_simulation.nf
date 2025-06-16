@@ -19,7 +19,7 @@ workflow FEDERATED_LEARNING_SIMULATION{
     main:
 
 
-    if(!params.centralized){
+    if(!params.skip_centralized){
 
         MERGE_CLIENTS_DATA(centralized_data_and_params_ch)
 

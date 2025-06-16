@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from flower.get_dataset import basic_collate_fn
 import lib.utils as utils
 from flower.model_config import get_model_config
+from lib.physionet import variable_time_collate_fn
 
 def gen_evaluate_fn(
     testloader: DataLoader,
@@ -107,18 +108,32 @@ def server_fn(context: Context, nrounds: int = 4):
     print(f"Partitions: {partitions}")
 
 
-    test_dataset = torch.cat([
-        torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
-    ], dim=0)
+    if dataset_name == "physionet":
+        from types import SimpleNamespace
+        args = SimpleNamespace()
+        args.sample_tp = sample_tp
+        args.cut_tp = cut_tp
+        args.extrap = extrap
+        test_dataset = []
+        for p in partitions:
+            test_dataset += torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True)
+            data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
+            data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
 
-    test_timestamps = torch.cat([
-        torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
-    ], dim=0)
-    test_timestamps =  test_timestamps[0]
-    print(f"Test timestamps shape: {test_timestamps.shape}")    
-
-    testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+        testloader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
+            collate_fn= lambda batch: variable_time_collate_fn(batch, args, server_device, data_type = "test",
+                data_min = data_min, data_max = data_max))
+    else:
+        test_dataset = torch.cat([
+            torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
+        ], dim=0)
+        test_timestamps = torch.cat([
+            torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
+        ], dim=0)
+        test_timestamps =  test_timestamps[0]
+        print(f"Test timestamps shape: {test_timestamps.shape}")    
+        testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
+            collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
 
     strategy = CustomFedAvg(
         run_config=run_config,
