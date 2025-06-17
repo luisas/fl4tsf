@@ -21,7 +21,7 @@ workflow {
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
     def replicate       = (1..Integer.parseInt("${params.replicate}")).collect { it.toString() }
 
-    // General parameters 
+    // General parameters (common to all cetralized, federated, and local training)
     Channel
         .of(lr)
         .combine(Channel.from(batch_size))
@@ -42,19 +42,7 @@ workflow {
                 ]
         }.set { meta_general }
 
-
-    // Create cross product of epochs and lr
-    Channel
-        .from(epochs)
-        .map { epoch ->
-            [
-                epochs      : epoch
-            ]
-        }
-        .set { meta_centralized }
-    
-
-    // Model parameters
+    // Model parameters (common to all cetralized, federated, and local training)
     Channel
         .of([
                 [obsrv_std: "${params.obsrv_std}",
@@ -75,7 +63,20 @@ workflow {
         ])
         .set { meta_model_params }
 
-    // Federated meta channel
+
+    // Parameters for centralized training
+    // Currently this is also the one used for local training, this may have to be changed in the future
+    Channel
+        .from(epochs)
+        .map { epoch ->
+            [
+                epochs      : epoch
+            ]
+        }
+        .set { meta_centralized }
+
+
+    // Parameters for federated training
     Channel
         .of(serverrounds)
         .combine(Channel.from(aggregation))
@@ -121,6 +122,8 @@ workflow {
         .set { meta_federated }
     
 
+    // Collect training data according to the dataset parameter
+    // Collects all client files for a given dataset name
     Channel
         .from(datasets)
         .map { ds ->
@@ -134,8 +137,8 @@ workflow {
         .set { training_data_ch }
 
 
-    // separate the training data by client (each of the files in it[1] contains client_{n}_)
-    // Assuming your channel is called input_ch
+    // Separate the training data by client for the local training
+    // There each module will have access to the files of only one client
     training_data_ch
         .map { meta, files ->
             // Group files by client
@@ -162,7 +165,6 @@ workflow {
         }
         .set { training_data_clients_ch }
 
-
     // Load bin
     Channel
         .fromPath("${projectDir}/bin/*", type: 'any')
@@ -170,27 +172,30 @@ workflow {
         .collect()
         .set { bin_ch }
 
-    // Prepare centralized training data
+
+    // Prepare centralized training data and parameters instructions
     training_data_ch.combine(meta_centralized)
         .map{ meta, data, meta2 -> 
                 [meta + meta2, data]
         }
         .set { centralized_data_and_params_ch }
 
-    // Prepare centralized training data
+    // Prepare centralized training data and parameters instructions for local training
     training_data_clients_ch.combine(meta_centralized)
         .map{ meta, data, meta2 -> 
                 [meta + meta2, data]
         }
         .set { centralized_data_and_params_local_ch }
 
-    // Prepare federated training data
+    // Prepare federated training data and parameters instructions
     training_data_ch.combine(meta_federated)
         .map{ meta, data, meta2 -> 
                 [meta + meta2, data]
         }
         .set { federated_data_and_params_ch }
 
+
+    // Launch simulation
     FEDERATED_LEARNING_SIMULATION(centralized_data_and_params_ch,centralized_data_and_params_local_ch, federated_data_and_params_ch, bin_ch)
 
 }
