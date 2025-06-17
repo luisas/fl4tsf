@@ -41,9 +41,6 @@ process FEDERATED_TRAINING {
     mkdir -p "\$RAY_SOCKET_DIR"
 
     python main.py --ncpus ${task.cpus} --ngpus ${task.accelerator.request} --raydir \$RAY_TMPDIR --ray_socket_dir \$RAY_SOCKET_DIR --nclients ${meta.clients}
-
-    # sleep to ensure all files are written
-    sleep 10
     
     # Store a file with all the meta information
     echo "$keys" > meta.csv

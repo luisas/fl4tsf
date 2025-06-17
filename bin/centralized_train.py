@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from flower.task import Net, load_data, train, test
 from flower.get_dataset import basic_collate_fn
-from lib.physionet import variable_time_collate_fn
+from lib.physionet import variable_time_collate_fn, get_data_min_max
 
 
 
@@ -39,7 +39,6 @@ cut_tp = None
 extrap = False
 data_folder = "." #../data/periodic/periodic
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
@@ -51,17 +50,21 @@ test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_
 
 if args.dataset == "physionet":
     from types import SimpleNamespace
-    args = SimpleNamespace()
-    args.sample_tp = sample_tp
-    args.cut_tp = None
-    args.extrap = None
-    data_min = torch.load(f"{data_folder}/{dataset_name}_data_min.pt", weights_only=False)
-    data_max = torch.load(f"{data_folder}/{dataset_name}_data_max.pt", weights_only=False)
+    args_physionet = SimpleNamespace()
+    args_physionet.sample_tp = sample_tp
+    args_physionet.cut_tp = None
+    args_physionet.extrap = None
+    if os.path.exists(f"{data_folder}/{dataset_name}_data_min.pt"):
+        data_min = torch.load(f"{data_folder}/{dataset_name}_data_min.pt", weights_only=False)
+        data_max = torch.load(f"{data_folder}/{dataset_name}_data_max.pt", weights_only=False)
+    else:
+        total_dataset = train_dataset + test_dataset
+        data_min, data_max = get_data_min_max(total_dataset)
     train_loader = DataLoader(train_dataset, batch_size= batch_size, shuffle=False, 
-        collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "train",
+        collate_fn= lambda batch: variable_time_collate_fn(batch, args_physionet, device, data_type = "train",
             data_min = data_min, data_max = data_max))
     test_loader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
-        collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "test",
+        collate_fn= lambda batch: variable_time_collate_fn(batch, args_physionet, device, data_type = "test",
             data_min = data_min, data_max = data_max))
 else:
     time_steps_extrap = torch.load(f"{data_folder}/{dataset_name}_time_steps_train.pt", weights_only=False)
@@ -71,7 +74,6 @@ else:
         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
     test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
-
 
 # train
 loss_training = train(model, train_loader, test_loader, epochs, lr=lr, device=device, loss_per_epoch=True)
