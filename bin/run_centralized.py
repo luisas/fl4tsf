@@ -1,1 +1,1 @@
-python centralized_train.py --dataset freq_amp_decay_maxfreq_0.1 --sample_tp 0.5 --batch_size 50 --epochs 2 --lr 0.01  --dataset_name "../data/freq_amp_decay_maxfreq_0.1/client_0" --output_dir "../results_local/"
+python centralized_train.py --dataset physionet_filtered --sample_tp 0.5 --batch_size 50 --epochs 2 --lr 0.01  --dataset_name "../data/physionet_filtered/client_0" --output_dir "../results_test/"

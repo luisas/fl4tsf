@@ -48,7 +48,7 @@ model = Net()
 train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=False)
 test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=False)
 
-if args.dataset == "physionet":
+if "physionet" in args.dataset:
     from types import SimpleNamespace
     args_physionet = SimpleNamespace()
     args_physionet.sample_tp = sample_tp

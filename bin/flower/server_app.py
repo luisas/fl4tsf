@@ -108,7 +108,7 @@ def server_fn(context: Context, nrounds: int = 4):
     print(f"Partitions: {partitions}")
 
 
-    if dataset_name == "physionet":
+    if "physionet" in dataset_name :
         from types import SimpleNamespace
         args = SimpleNamespace()
         args.sample_tp = sample_tp

@@ -39,6 +39,7 @@ class DiffeqSolver(nn.Module):
 		
 		pred_y = odeint(self.ode_func, first_point, time_steps_to_predict, 
 			rtol=self.odeint_rtol, atol=self.odeint_atol, method = self.ode_method)
+		
 		pred_y = pred_y.permute(1,2,0,3)
 
 		assert(torch.mean(pred_y[:, :, 0, :]  - first_point) < 0.001)

@@ -259,7 +259,7 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=True)
     test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
 
-    if dataset_name == "physionet":
+    if "physionet" == dataset_name:
 
         print("Loading Physionet dataset...")
         from types import SimpleNamespace

@@ -264,7 +264,10 @@ class VAE_Baseline(nn.Module):
 		fp_mu, fp_std, fp_enc = info["first_point"]
 		fp_std = fp_std.abs()
 
-		fp_distr = Normal(fp_mu, fp_std)
+		eps = 1e-6
+		fp_distr = Normal(fp_mu, fp_std + eps)
+
+		#fp_distr = Normal(fp_mu, fp_std)
 
 		assert(torch.sum(fp_std < 0) == 0.)
 
