@@ -18,7 +18,7 @@ process FEDERATED_TRAINING {
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
     path("federated_outputs/meta.csv")               , emit: meta_csv
-    path("weights*.pt")                              , emit: weights, optional: true
+    //path("weights*.pt")                              , emit: weights, optional: true
 
     when:
     task.ext.when == null || task.ext.when
@@ -37,7 +37,7 @@ process FEDERATED_TRAINING {
     # If NOT running on SLURM (likely local)
     # TODO: this is a quick fix and only supports slurm executor but should be made cleaner
     if [[ -n "\${SLURM_JOB_ID:-}" ]]; then
-        ulimit -u 100000
+        ulimit -u 10000
     fi
 
     # Setup Ray environment
