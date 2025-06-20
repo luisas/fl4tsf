@@ -259,8 +259,7 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=True)
     test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
 
-    if "physionet" == dataset_name:
-
+    if "physionet" in dataset_name:
         print("Loading Physionet dataset...")
         from types import SimpleNamespace
         args = SimpleNamespace()
@@ -269,12 +268,14 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
         args.extrap = extrap
         data_min = torch.load(os.path.join(data_folder, f"{partition_name}_data_min.pt"), weights_only=True)
         data_max = torch.load(os.path.join(data_folder, f"{partition_name}_data_max.pt"), weights_only=True)
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,
-            collate_fn=lambda batch: variable_time_collate_fn(batch, model_config, device, data_type="train",
-                                                              data_min=data_min, data_max=data_max))
-        validation_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
-            collate_fn=lambda batch: variable_time_collate_fn(batch, model_config, device, data_type="test",
-                                                              data_min=data_min, data_max=data_max))
+            collate_fn=lambda batch: variable_time_collate_fn(batch, args, device, data_type="train",
+                data_min=data_min, data_max=data_max))
+        validation_loader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
+            collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "test",
+                data_min = data_min, data_max = data_max))
+
 
     else:    
         print("Loading dataset...")

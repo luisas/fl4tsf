@@ -6,6 +6,11 @@ main pipeline:
 main.nf
 ```
 
+```
+nextflow run main.nf -profile <YOUR_PROFILE>,ny,singularity
+```
+
+
 ## analysis notebook 
 
 #### 1 - generate simulated dataset
