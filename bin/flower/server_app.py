@@ -14,7 +14,7 @@ import os
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from types import SimpleNamespace
-from flower.get_dataset import basic_collate_fn
+from lib.collate_functions import basic_collate_fn
 import lib.utils as utils
 from flower.model_config import get_model_config
 from lib.physionet import variable_time_collate_fn

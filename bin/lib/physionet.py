@@ -25,6 +25,7 @@ from lib.utils import get_device
 # get minimum and maximum for each feature across the whole dataset
 def get_data_min_max(records):
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	print("Getting data min and max devices: ", device)
 
 	data_min, data_max = None, None
 	inf = torch.Tensor([float("Inf")])[0].to(device)
@@ -40,8 +41,8 @@ def get_data_min_max(records):
 				batch_min.append(inf)
 				batch_max.append(-inf)
 			else:
-				batch_min.append(torch.min(non_missing_vals))
-				batch_max.append(torch.max(non_missing_vals))
+				batch_min.append(torch.min(non_missing_vals).to(device))
+				batch_max.append(torch.max(non_missing_vals).to(device))
 
 		batch_min = torch.stack(batch_min)
 		batch_max = torch.stack(batch_max)

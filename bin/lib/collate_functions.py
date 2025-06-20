@@ -1,4 +1,3 @@
-
 import torch
 from torch.utils.data import DataLoader
 from lib.parse_datasets import parse_datasets
@@ -22,4 +21,3 @@ def basic_collate_fn(batch, time_steps, dataset_name, sample_tp, cut_tp, extrap,
 
     data_dict = utils.split_and_subsample_batch(data_dict, args, data_type = data_type)
     return data_dict
-

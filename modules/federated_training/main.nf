@@ -32,7 +32,14 @@ process FEDERATED_TRAINING {
     export RAY_LOG_TO_STDERR=0
     export RAY_LOG_TO_FILE=1
     export RAY_LOG_DIR="./ray_logs"
-    ulimit -u 100000
+
+
+    # If NOT running on SLURM (likely local)
+    # TODO: this is a quick fix and only supports slurm executor but should be made cleaner
+    if [[ -n "\${SLURM_JOB_ID:-}" ]]; then
+        ulimit -u 100000
+    fi
+
     # Setup Ray environment
     export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
     mkdir -p "\$RAY_TMPDIR"

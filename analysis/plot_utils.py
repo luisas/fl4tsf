@@ -6,7 +6,7 @@ from lib.latent_ode import LatentODE
 from lib.plot import plot_trajectories
 import matplotlib.pyplot as plt
 import torch
-from flower.get_dataset import basic_collate_fn
+from flower.lib.collate_functions import basic_collate_fn
 import pandas as pd
 import json
 

@@ -19,7 +19,7 @@ from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
-from flower.get_dataset import basic_collate_fn
+from lib.collate_functions import basic_collate_fn
 from flower.model_config import get_model_config
 from lib.physionet import variable_time_collate_fn
 
