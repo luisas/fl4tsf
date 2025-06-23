@@ -1,0 +1,4 @@
+--- Generating data for dirichlet-alpha: 10 ---
+Creating ECG dataset with 2 clients, 500 patients each
+Duration: 120.0s, Variable duration: False, Alpha: 10.0, Seed: 1
+Generating patient data...

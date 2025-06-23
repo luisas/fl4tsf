@@ -269,41 +269,40 @@ def generate_clients(
     cpu_cnt = 6
     max_workers = cpu_cnt if max_workers is None else min(max_workers, cpu_cnt)
     n_workers = max(1, min(max_workers, total))
-    n_workers = 1
     batches = _chunk(assignments, n_workers)
     
     # TEMPORARY: Run a single batch synchronously to profile _worker
-    for idx, batch in enumerate(batches[:1]):  # Just one batch
-        result = _worker(
-            batch,
-            cfg=cfg,
-            duration_cfg=duration_cfg,
-            base_duration=duration_sec,
-            variable_duration=variable_duration,
-            base_seed=seed + idx * 1_000_000,
-            client_geos=client_geos,
-            client_arch_dists=client_arch_dists,
-        )
-        for patient in result:
-            yield patient
+    # for idx, batch in enumerate(batches[:1]):  # Just one batch
+    #     result = _worker(
+    #         batch,
+    #         cfg=cfg,
+    #         duration_cfg=duration_cfg,
+    #         base_duration=duration_sec,
+    #         variable_duration=variable_duration,
+    #         base_seed=seed + idx * 1_000_000,
+    #         client_geos=client_geos,
+    #         client_arch_dists=client_arch_dists,
+    #     )
+    #     for patient in result:
+    #         yield patient
 
 
-    # with ProcessPoolExecutor(max_workers=n_workers) as pool:
-    #     futures = [
-    #         pool.submit(
-    #             _worker,
-    #             batch,
-    #             cfg=cfg,
-    #             duration_cfg=duration_cfg,
-    #             base_duration=duration_sec,
-    #             variable_duration=variable_duration,
-    #             base_seed=seed + idx * 1_000_000,
-    #             client_geos=client_geos,
-    #             client_arch_dists=client_arch_dists,
-    #         )
-    #         for idx, batch in enumerate(batches)
-    #     ]
+    with ProcessPoolExecutor(max_workers=n_workers) as pool:
+        futures = [
+            pool.submit(
+                _worker,
+                batch,
+                cfg=cfg,
+                duration_cfg=duration_cfg,
+                base_duration=duration_sec,
+                variable_duration=variable_duration,
+                base_seed=seed + idx * 1_000_000,
+                client_geos=client_geos,
+                client_arch_dists=client_arch_dists,
+            )
+            for idx, batch in enumerate(batches)
+        ]
 
-    #     for fut in as_completed(futures):
-    #         for patient in fut.result():
-    #             yield patient
+        for fut in as_completed(futures):
+            for patient in fut.result():
+                yield patient
