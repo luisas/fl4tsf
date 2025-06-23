@@ -1,0 +1,55 @@
+# configs/recording_duration.yaml
+# Recording duration ranges by archetype (in seconds)
+# Reflects realistic clinical practice: healthy patients get shorter recordings,
+# sick patients get longer monitoring
+
+healthy_young:
+  base_duration_range: [10, 30]        # Quick routine ECGs
+  extension_on_event: [20, 30]        # Extended monitoring if events detected
+  continuous_monitoring_prob: 0.0002     # Very low probability of long monitoring
+
+athlete:
+  base_duration_range: [15, 45]        # Slightly longer for sports medicine
+  extension_on_event: [20, 30]       # Longer follow-up for performance monitoring
+  continuous_monitoring_prob: 0.0005     # Exercise stress tests
+
+elderly_frail:
+  base_duration_range: [30, 90]       # Longer baseline monitoring
+  extension_on_event: [30, 50]       # Significant extension for events
+  continuous_monitoring_prob: 0.0015     # Higher chance of extended monitoring
+
+cardiac_outpatient:
+  base_duration_range: [90, 150]       # Standard cardiology monitoring
+  extension_on_event: [40, 100]      # 10-30 min post-event monitoring
+  continuous_monitoring_prob: 0.0025     # Holter-like monitoring
+
+icu_critical:
+  base_duration_range: [150, 300]     # Continuous ICU monitoring (5-30 min segments)
+  extension_on_event: [40, 100]     # Very long post-event monitoring
+  continuous_monitoring_prob: 0.060     # High probability of continuous monitoring
+
+# Event-specific extension rules
+event_extensions:
+  pvc_isolated:
+    min_extension_sec: 10              # Monitor for 1 min after isolated PVC
+    max_extension_sec: 20             # Up to 5 min extension
+    
+  pvc_storm:
+    min_extension_sec: 20             # Monitor for 10 min after PVC storm
+    max_extension_sec: 30            # Up to 30 min extension
+    
+  atrial_fibrillation:
+    min_extension_sec: 40             # Monitor for 15 min after AF
+    max_extension_sec: 60            # Up to 1 hour extension
+    
+  st_depression:
+    min_extension_sec: 30             # Monitor for 5 min after ischemia
+    max_extension_sec: 60            # Up to 20 min extension
+
+# Maximum total duration limits (safety bounds)
+max_duration_limits:
+  healthy_young: 100        # 10 minutes max
+  athlete: 100              # 15 minutes max  
+  elderly_frail: 200       # 30 minutes max
+  cardiac_outpatient: 300  # 1 hour max
+  icu_critical: 700        # 2 hours max

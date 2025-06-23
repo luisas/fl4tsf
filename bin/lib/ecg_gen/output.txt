@@ -1,0 +1,705 @@
+Timer unit: 1e-06 s
+
+Total time: 6.35e-06 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: calculate_event_extension at line 319
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   319                                           @profile
+   320                                           def calculate_event_extension(event_schedule: Dict[str, List[float]], 
+   321                                                                       duration_config: Dict[str, Any], archetype: str) -> float:
+   322                                               """Calculate how much to extend recording based on detected events."""
+   323         1          0.4      0.4      5.8      if not event_schedule:
+   324                                                   return 0.0
+   325                                               
+   326         1          0.6      0.6      9.4      extension_config = duration_config.get('event_extensions', {})
+   327         1          0.4      0.4      6.9      archetype_config = duration_config.get(archetype, {})
+   328                                               
+   329         1          0.3      0.3      4.6      total_extension = 0.0
+   330                                               
+   331         2          0.8      0.4     12.1      for event_type, event_times in event_schedule.items():
+   332         1          0.4      0.4      6.6          if event_type in extension_config:
+   333                                                       event_ext_config = extension_config[event_type]
+   334                                                       min_ext = event_ext_config['min_extension_sec']
+   335                                                       max_ext = event_ext_config['max_extension_sec']
+   336                                                       extension = np.random.uniform(min_ext, max_ext)
+   337                                                   else:
+   338         1          0.3      0.3      5.2              if 'extension_on_event' in archetype_config:
+   339         1          2.0      2.0     31.3                  extension = np.random.uniform(*archetype_config['extension_on_event'])
+   340                                                       else:
+   341                                                           extension = 300  # Default 5 min extension
+   342                                                   
+   343                                                   # Multiple events of same type don't stack linearly
+   344         1          0.6      0.6      8.7          total_extension = max(total_extension, extension)
+   345                                               
+   346                                               # Multiple different event types can add some cumulative extension
+   347         1          0.5      0.5      7.6      if len(event_schedule) > 1:
+   348                                                   total_extension *= 1.2  # 20% bonus for multiple event types
+   349                                               
+   350         1          0.1      0.1      1.7      return total_extension
+
+Total time: 0 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: apply_events_to_signal at line 352
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   352                                           @profile
+   353                                           def apply_events_to_signal(ecg_signal: np.ndarray, sampling_rate: int, 
+   354                                                                    event_schedule: Dict[str, List[float]]) -> np.ndarray:
+   355                                               """Apply cardiac events to the ECG signal at scheduled times."""
+   356                                               if not event_schedule:
+   357                                                   return ecg_signal
+   358                                               
+   359                                               modified_signal = ecg_signal.copy()
+   360                                               
+   361                                               for event_type, event_times in event_schedule.items():
+   362                                                   try:
+   363                                                       if event_type == 'pvc_isolated' or event_type == 'pvc_storm':
+   364                                                           modified_signal = modifiers.apply_modifier(
+   365                                                               'event', 'add_pvc',
+   366                                                               modified_signal,
+   367                                                               sampling_rate=sampling_rate,
+   368                                                               event_times=event_times
+   369                                                           )
+   370                                                       elif event_type == 'atrial_fibrillation':
+   371                                                           for event_time in event_times:
+   372                                                               duration = np.random.uniform(30, 300)  # 30 sec to 5 min AF episodes
+   373                                                               modified_signal = modifiers.apply_modifier(
+   374                                                                   'event', 'add_atrial_fib',
+   375                                                                   modified_signal,
+   376                                                                   sampling_rate=sampling_rate,
+   377                                                                   start_s=event_time,
+   378                                                                   duration_s=duration
+   379                                                               )
+   380                                                       elif event_type == 'baseline_wander':
+   381                                                           # This is already applied in hardware artifacts, skip to avoid double application
+   382                                                           continue
+   383                                                       else:
+   384                                                           print(f"Event type '{event_type}' not yet implemented for signal modification")
+   385                                                           
+   386                                                   except Exception as e:
+   387                                                       print(f"Warning: Failed to apply {event_type} event: {e}")
+   388                                                       continue
+   389                                               
+   390                                               return modified_signal
+
+Total time: 0 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: apply_qt_stretch at line 395
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   395                                           @profile
+   396                                           def apply_qt_stretch(ecg: np.ndarray, base_sr: int, qt_scale: float) -> Tuple[np.ndarray, int]:
+   397                                               """Apply QT interval stretching by resampling signal."""
+   398                                               if np.isclose(qt_scale, 1.0):
+   399                                                   return ecg.astype(np.float32), base_sr
+   400                                           
+   401                                               try:
+   402                                                   new_length = int(round(len(ecg) * qt_scale))
+   403                                                   if new_length < 20:  # Prevent resampling to tiny length
+   404                                                       return ecg.astype(np.float32), base_sr
+   405                                                   ecg_resampled = resample_poly(ecg, 
+   406                                                                                 new_length, 
+   407                                                                                 len(ecg)).astype(np.float32)
+   408                                                   # ecg_resampled = nk.signal_resample(
+   409                                                   #     ecg, 
+   410                                                   #     desired_length=new_length,
+   411                                                   #     method="poly"  # Fast resampling method
+   412                                                   # ).astype(np.float32)
+   413                                                   
+   414                                                   # Compute new sampling rate to maintain original duration
+   415                                                   original_duration = len(ecg) / base_sr
+   416                                                   new_sr = int(round(new_length / original_duration))
+   417                                                   return ecg_resampled, new_sr
+   418                                               except Exception:
+   419                                                   return ecg.astype(np.float32), base_sr
+
+Total time: 0 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: apply_signal_artifacts at line 421
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   421                                           @profile
+   422                                           def apply_signal_artifacts(ecg: np.ndarray, hw_params: Dict[str, Any], sampling_rate: int) -> np.ndarray:
+   423                                               """Apply hardware-related artifacts to ECG signal using fast modifier functions."""
+   424                                               modified_ecg = ecg.copy()
+   425                                               noise_fraction = hw_params['noise_amplitude_mv'] / NOMINAL_ECG_MV
+   426                                               
+   427                                               # Apply artifacts using the modifier system for consistency
+   428                                               # Powerline interference
+   429                                               if np.random.rand() < hw_params['powerline_noise_prob']:
+   430                                                   powerline_severity = min(0.01, 0.2 * noise_fraction)
+   431                                                   modified_ecg = modifiers.apply_modifier(
+   432                                                       "artifact", "powerline_noise", 
+   433                                                       modified_ecg,
+   434                                                       sampling_rate=sampling_rate,
+   435                                                       severity=powerline_severity,
+   436                                                       frequency_hz=hw_params['powerline_frequency_hz']
+   437                                                   )
+   438                                               
+   439                                               # Motion artifacts
+   440                                               if np.random.rand() < hw_params['motion_artifact_prob']:
+   441                                                   modified_ecg = modifiers.apply_modifier(
+   442                                                       "artifact", "motion_artifact",
+   443                                                       modified_ecg,
+   444                                                       sampling_rate=sampling_rate,
+   445                                                       severity=noise_fraction
+   446                                                   )
+   447                                               
+   448                                               # Baseline wander (always present)
+   449                                               modified_ecg = modifiers.apply_modifier(
+   450                                                   "artifact", "baseline_wander",
+   451                                                   modified_ecg,
+   452                                                   sampling_rate=sampling_rate,
+   453                                                   severity=noise_fraction * 0.5
+   454                                               )
+   455                                               
+   456                                               return modified_ecg
+
+Total time: 0 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: apply_adc_quantization at line 458
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   458                                           @profile
+   459                                           def apply_adc_quantization(ecg: np.ndarray, adc_bits: int) -> np.ndarray:
+   460                                               """Apply ADC quantization effects if specified."""
+   461                                               if adc_bits <= 0:
+   462                                                   return ecg
+   463                                               
+   464                                               adc_levels = 2 ** adc_bits
+   465                                               signal_range = np.ptp(ecg)
+   466                                               
+   467                                               if signal_range > 0:
+   468                                                   resolution = signal_range / adc_levels
+   469                                                   return np.round(ecg / resolution) * resolution
+   470                                               
+   471                                               return ecg
+
+Total time: 0 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/core.py
+Function: validate_ecg_signal at line 589
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   589                                           @profile
+   590                                           def validate_ecg_signal(ecg: np.ndarray, sampling_rate: int, phys_params: Dict[str, float]) -> bool:
+   591                                               """Validate ECG signal for clinical realism."""
+   592                                               try:
+   593                                                   # Basic signal checks
+   594                                                   if len(ecg) == 0 or np.any(np.isnan(ecg)):
+   595                                                       return False
+   596                                                   
+   597                                                   # Amplitude validation
+   598                                                   rms = np.sqrt(np.mean(ecg**2))
+   599                                                   if rms < 0.02 or rms > 10.0:  # Reasonable RMS range in mV
+   600                                                       return False
+   601                                                   
+   602                                                   # Heart rate validation via R-peak detection (using fast method)
+   603                                                   _, rpeaks = nk.ecg_peaks(ecg, sampling_rate=sampling_rate, method='emrich2023', correct_artifacts = False)
+   604                                                   if len(rpeaks['ECG_R_Peaks']) < 2:
+   605                                                       return False
+   606                                                   
+   607                                                   rr_intervals = np.diff(rpeaks['ECG_R_Peaks']) / sampling_rate
+   608                                                   avg_hr = 60 / np.mean(rr_intervals)
+   609                                                   if avg_hr < 25 or avg_hr > 300:
+   610                                                       return False
+   611                                                   
+   612                                                   # QTc validation
+   613                                                   target_qt_ms = phys_params.get('qt_target_ms', BASE_QT_MS)
+   614                                                   qtc_ms = target_qt_ms / np.sqrt(60 / avg_hr)  # Bazett's formula
+   615                                                   if qtc_ms < 250 or qtc_ms > 700:
+   616                                                       return False
+   617                                                   
+   618                                                   return True
+   619                                                   
+   620                                               except Exception:
+   621                                                   return False
+
+Total time: 1762.19 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/generator.py
+Function: _worker at line 87
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    87                                           @profile
+    88                                           def _worker(
+    89                                               batch: List[_Assignment],
+    90                                               *,
+    91                                               cfg: Dict[str, Any],
+    92                                               duration_cfg: Dict[str, Any],
+    93                                               base_duration: float,
+    94                                               variable_duration: bool,
+    95                                               base_seed: int,
+    96                                               client_geos: np.ndarray,
+    97                                               client_arch_dists: np.ndarray,
+    98                                           ) -> List[Dict[str, Any]]:
+    99         1         22.2     22.2      0.0      np.random.seed(base_seed)
+   100         1         53.6     53.6      0.0      rng = np.random.default_rng(base_seed)
+   101                                           
+   102         1          0.1      0.1      0.0      results: List[Dict[str, Any]] = []
+   103                                           
+   104         1          0.3      0.3      0.0      for client_id, patient_id, archetype in batch:
+   105         1          0.3      0.3      0.0          patient_seed = base_seed + client_id * 10_000 + patient_id
+   106         1          1.9      1.9      0.0          geo_cfg = cfg["geography"][client_geos[client_id]]
+   107                                           
+   108                                                   # 1. Duration & event schedule
+   109         1          0.1      0.1      0.0          if variable_duration:
+   110         2         71.7     35.8      0.0              rec_dur, evt_sched = sample_recording_duration(
+   111         1          0.7      0.7      0.0                  archetype, duration_cfg, cfg.get("events", {}), patient_seed
+   112                                                       )
+   113         1          0.3      0.3      0.0              rec_dur = max(rec_dur, base_duration)
+   114                                                   else:
+   115                                                       rec_dur = base_duration
+   116                                                       evt_sched = {}
+   117                                           
+   118                                                   # 2. Physiological + hardware parameters
+   119         1        822.7    822.7      0.0          phys = sample_physiological_params(archetype, cfg["archetypes"])
+   120         1         44.2     44.2      0.0          hw = sample_hardware_params(archetype, cfg["hardware"], geo_cfg)
+   121                                           
+   122                                                   # 3. Sample and partition conditions by effect_type
+   123         1         17.4     17.4      0.0          comorbs = sample_conditions(archetype, cfg.get("comorbidities", {}), "comorbidities")
+   124                                                   
+   125                                                   # Partition comorbidities by effect_type
+   126         1          0.1      0.1      0.0          parameter_comorbs = []
+   127         1          0.1      0.1      0.0          timing_comorbs = []
+   128         1          0.1      0.1      0.0          morphology_comorbs = []
+   129                                                   
+   130         3          0.9      0.3      0.0          for condition in comorbs:
+   131         2          1.2      0.6      0.0              effect_type = cfg["comorbidities"][condition].get("effect_type", "parameter")
+   132         2          0.6      0.3      0.0              if effect_type == "parameter":
+   133         1          0.2      0.2      0.0                  parameter_comorbs.append(condition)
+   134         1          0.6      0.6      0.0              elif effect_type == "timing":
+   135                                                           timing_comorbs.append(condition)
+   136         1          0.2      0.2      0.0              elif effect_type == "morphology":
+   137         1          0.2      0.2      0.0                  morphology_comorbs.append(condition)
+   138                                                   
+   139                                                   # Medications (typically all parameter-based)
+   140         1          7.1      7.1      0.0          meds = sample_conditions(archetype, cfg["medications"], "medications")
+   141                                           
+   142                                                   # 4. Apply parameter effects and prepare timing-based morphology_params
+   143         2         15.0      7.5      0.0          phys, morphology_params = apply_parameter_effects(
+   144         1          0.1      0.1      0.0              phys, parameter_comorbs, timing_comorbs, "comorbidity", cfg
+   145                                                   )
+   146                                                   
+   147                                                   # Apply medication effects (always parameter-based)
+   148         1          0.1      0.1      0.0          if meds:
+   149         1         11.8     11.8      0.0              phys = apply_condition_effects(phys, meds, "medication")
+   150                                           
+   151                                                   # 5. Apply QT offset → stretch (from parameter effects)
+   152         1          0.4      0.4      0.0          if (off := phys.get("qt_offset", 0.0)) != 0.0:
+   153         1          0.6      0.6      0.0              tgt = phys.get("qt_target_ms", BASE_QT_MS) + off * 1000
+   154         1          6.9      6.9      0.0              tgt = np.clip(tgt, 300, 600)
+   155         1          0.2      0.2      0.0              phys["qt_target_ms"] = tgt
+   156         1          0.3      0.3      0.0              phys["qt_stretch"] = tgt / BASE_QT_MS
+   157                                           
+   158         1          4.9      4.9      0.0          phys["heart_rate"] = np.clip(phys["heart_rate"], 30, 220)
+   159         1          4.4      4.4      0.0          phys["heart_rate_std"] = np.clip(phys["heart_rate_std"], 0.05, 15.0)
+   160                                           
+   161                                                   # 6. Simulate BASELINE ECG with timing modifications (if any)
+   162         1          0.3      0.3      0.0          try:
+   163         2 1762193602.3    9e+08    100.0              ecg = nk.ecg_simulate(
+   164         1          0.5      0.5      0.0                  duration=float(rec_dur),
+   165         1          0.5      0.5      0.0                  sampling_rate=int(hw["sampling_rate"]),
+   166         1          0.5      0.5      0.0                  heart_rate=float(phys["heart_rate"]),
+   167         1          0.2      0.2      0.0                  heart_rate_std=float(phys["heart_rate_std"]),
+   168         1          0.2      0.2      0.0                  random_state=int(patient_seed),
+   169         1          0.1      0.1      0.0                  morphology_params=morphology_params  # Pass timing modifications to solver
+   170                                                       )
+   171         1          5.2      5.2      0.0          except Exception:
+   172                                                       continue  # Skip failed ECG generation silently in multiprocessing context
+   173                                           
+   174                                                   # 7. Apply QT stretch (for any remaining adjustments)
+   175                                                   ecg, final_sr = apply_qt_stretch(ecg, hw["sampling_rate"], phys["qt_stretch"])
+   176                                           
+   177                                                   # 8. Apply CHRONIC MORPHOLOGY changes (post-simulation)
+   178                                                   if morphology_comorbs:
+   179                                                       ecg = apply_chronic_morphologies(ecg, final_sr, morphology_comorbs, cfg)
+   180                                           
+   181                                                   # 9. Apply transient events and artifacts (existing pipeline)
+   182                                                   if evt_sched:
+   183                                                       ecg = apply_events_to_signal(ecg, final_sr, evt_sched)
+   184                                                   ecg = apply_signal_artifacts(ecg, hw, final_sr)
+   185                                                   if hw.get("adc_resolution_bits"):
+   186                                                       ecg = apply_adc_quantization(ecg, hw["adc_resolution_bits"])
+   187                                                   
+   188                                                   # 10. Validation
+   189                                                   if not validate_ecg_signal(ecg, final_sr, phys):
+   190                                                       continue  # Skip invalid signals silently in multiprocessing context
+   191                                           
+   192                                                   # 11. Create output
+   193                                                   t_axis = np.linspace(0, len(ecg) / final_sr, len(ecg))
+   194                                                   meta = {
+   195                                                       "client_id": client_id,
+   196                                                       "patient_id": patient_id,
+   197                                                       "archetype": archetype,
+   198                                                       "geography": client_geos[client_id],
+   199                                                       "medications": meds,
+   200                                                       "comorbidities": comorbs,
+   201                                                       "parameter_comorbidities": parameter_comorbs,
+   202                                                       "timing_comorbidities": timing_comorbs,
+   203                                                       "morphology_comorbidities": morphology_comorbs,
+   204                                                       "sampling_rate": final_sr,
+   205                                                       "actual_duration_sec": len(ecg) / final_sr,
+   206                                                       "planned_duration_sec": rec_dur,
+   207                                                       "base_duration_sec": base_duration,
+   208                                                       "variable_duration_used": variable_duration,
+   209                                                       **{k: v for k, v in phys.items() if k != "qt_offset"},
+   210                                                       **{k: v for k, v in hw.items() if k != "sampling_rate"},
+   211                                                   }
+   212                                                   
+   213                                                   if evt_sched:
+   214                                                       meta.update(
+   215                                                           events_detected=evt_sched,
+   216                                                           total_events=sum(len(v) for v in evt_sched.values()),
+   217                                                           event_types=list(evt_sched.keys()),
+   218                                                       )
+   219                                                   else:
+   220                                                       meta.update(events_detected={}, total_events=0, event_types=[])
+   221                                           
+   222                                                   results.append(
+   223                                                       {
+   224                                                           "metadata": meta,
+   225                                                           "signal": torch.tensor(ecg, dtype=torch.float32).unsqueeze(-1),
+   226                                                           "timestamps": torch.tensor(t_axis, dtype=torch.float32),
+   227                                                       }
+   228                                                   )
+   229                                               return results
+
+Total time: 1762.28 s
+File: /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf/bin/lib/ecg_gen/generator.py
+Function: generate_clients at line 234
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   234                                           @profile
+   235                                           def generate_clients(
+   236                                               *,
+   237                                               num_clients: int,
+   238                                               num_patients_per_client: int,
+   239                                               duration_sec: float,
+   240                                               dirichlet_alpha: float = 0.5,
+   241                                               seed: int = 42,
+   242                                               variable_duration: bool = True,
+   243                                               max_workers: int | None = None,
+   244                                           ) -> Iterator[Dict[str, Any]]:
+   245                                               """Yield dictionaries containing simulated ECG signals + rich metadata."""
+   246                                           
+   247         1      76567.1  76567.1      0.0      cfg = load_configs()
+   248                                           
+   249         1          0.3      0.3      0.0      duration_cfg: Dict[str, Any] = {}
+   250         1          0.1      0.1      0.0      if variable_duration:
+   251         1         56.0     56.0      0.0          dur_file = Path(__file__).with_suffix("").parent / "configs/recording_duration.yaml"
+   252         1         30.5     30.5      0.0          if dur_file.exists():
+   253         1       9824.6   9824.6      0.0              duration_cfg = yaml.safe_load(dur_file.read_text())
+   254                                                   else:
+   255                                                       print("[ecg_generator] recording_duration.yaml missing – using fixed durations")
+   256                                                       variable_duration = False
+   257                                           
+   258                                               # Per‑client settings
+   259         1          2.1      2.1      0.0      archetype_names = list(cfg["archetypes"].keys())
+   260         1         15.9     15.9      0.0      geo_names = np.array(list(cfg["geography"].keys()))
+   261         1         18.8     18.8      0.0      geo_probs = np.array([cfg["geography"][g]["weight"] for g in geo_names])
+   262                                           
+   263         1        124.2    124.2      0.0      rng = np.random.default_rng(seed)
+   264         1        174.2    174.2      0.0      client_geos = rng.choice(geo_names, size=num_clients, p=geo_probs, replace=True)
+   265         1         92.3     92.3      0.0      client_arch_dists = sample_client_distributions(num_clients, cfg["archetypes"], dirichlet_alpha)
+   266                                           
+   267         1        258.9    258.9      0.0      assignments = _create_assignments(num_clients, num_patients_per_client, client_arch_dists, archetype_names)
+   268                                           
+   269                                               # Decide on worker count
+   270         1          0.6      0.6      0.0      total = len(assignments)
+   271         1          0.3      0.3      0.0      cpu_cnt = 6
+   272         1          0.3      0.3      0.0      max_workers = cpu_cnt if max_workers is None else min(max_workers, cpu_cnt)
+   273         1          1.1      1.1      0.0      n_workers = max(1, min(max_workers, total))
+   274         1          0.1      0.1      0.0      n_workers = 1
+   275         1          3.8      3.8      0.0      batches = _chunk(assignments, n_workers)
+   276                                               
+   277                                               # TEMPORARY: Run a single batch synchronously to profile _worker
+   278         1          1.1      1.1      0.0      for idx, batch in enumerate(batches[:1]):  # Just one batch
+   279         2 1762194785.3    9e+08    100.0          result = _worker(
+   280         1          0.1      0.1      0.0              batch,
+   281         1          0.1      0.1      0.0              cfg=cfg,
+   282         1          0.1      0.1      0.0              duration_cfg=duration_cfg,
+   283         1          0.1      0.1      0.0              base_duration=duration_sec,
+   284         1          0.1      0.1      0.0              variable_duration=variable_duration,
+   285         1          0.4      0.4      0.0              base_seed=seed + idx * 1_000_000,
+   286         1          0.1      0.1      0.0              client_geos=client_geos,
+   287         1          0.1      0.1      0.0              client_arch_dists=client_arch_dists,
+   288                                                   )
+   289                                                   for patient in result:
+   290                                                       yield patient
+   291                                           
+   292                                           
+   293                                               # with ProcessPoolExecutor(max_workers=n_workers) as pool:
+   294                                               #     futures = [
+   295                                               #         pool.submit(
+   296                                               #             _worker,
+   297                                               #             batch,
+   298                                               #             cfg=cfg,
+   299                                               #             duration_cfg=duration_cfg,
+   300                                               #             base_duration=duration_sec,
+   301                                               #             variable_duration=variable_duration,
+   302                                               #             base_seed=seed + idx * 1_000_000,
+   303                                               #             client_geos=client_geos,
+   304                                               #             client_arch_dists=client_arch_dists,
+   305                                               #         )
+   306                                               #         for idx, batch in enumerate(batches)
+   307                                               #     ]
+   308                                           
+   309                                               #     for fut in as_completed(futures):
+   310                                               #         for patient in fut.result():
+   311                                               #             yield patient
+
+Total time: 1762.19 s
+File: /gpfs/commons/home/aelhussein/miniconda3/envs/fl_ts_env/lib/python3.11/site-packages/neurokit3/ecg/ecg_simulate.py
+Function: ecg_simulate at line 17
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    17                                           @profile
+    18                                           def ecg_simulate(
+    19                                               duration=10,
+    20                                               length=None,
+    21                                               sampling_rate=1000,
+    22                                               noise=0.01,
+    23                                               heart_rate=70,
+    24                                               heart_rate_std=1,
+    25                                               method="ecgsyn",
+    26                                               random_state=None,
+    27                                               random_state_distort="spawn",
+    28                                               morphology_params=None,
+    29                                               **kwargs,
+    30                                           ):
+
+   129                                               """
+   130                                               # Seed the random generator for reproducible results
+   131         1        156.5    156.5      0.0      rng = check_random_state(random_state)
+   132                                           
+   133                                               # Generate number of samples automatically if length is unspecified
+   134         1          0.1      0.1      0.0      if length is None:
+   135         1          0.3      0.3      0.0          length = duration * sampling_rate
+   136         1          0.1      0.1      0.0      if duration is None:
+   137                                                   duration = length / sampling_rate
+   138                                           
+   139                                               # Run appropriate method
+   140         1          1.2      1.2      0.0      if method.lower() in ["simple", "daubechies"]:
+   141                                                   signals = _ecg_simulate_daubechies(
+   142                                                       duration=duration, length=length, sampling_rate=sampling_rate, heart_rate=heart_rate
+   143                                                   )
+   144                                               else:
+   145         1         17.5     17.5      0.0          approx_number_beats = int(np.round(duration * (heart_rate / 60)))
+   146         1          0.8      0.8      0.0          if method.lower() in ["multi", "multilead", "multileads", "multichannel"]:
+   147                                                       # Gamma, a (12,5) matrix to modify the five waves' amplitudes of 12 leads (P, Q, R, S, T)
+   148                                                       gamma = np.array(
+   149                                                           [
+   150                                                               [1, 0.1, 1, 1.2, 1],
+   151                                                               [2, 0.2, 0.2, 0.2, 3],
+   152                                                               [1, -0.1, -0.8, -1.1, 2.5],
+   153                                                               [-1, -0.05, -0.8, -0.5, -1.2],
+   154                                                               [0.05, 0.05, 1, 1, 1],
+   155                                                               [1, -0.05, -0.1, -0.1, 3],
+   156                                                               [-0.5, 0.05, 0.2, 0.5, 1],
+   157                                                               [0.05, 0.05, 1.3, 2.5, 2],
+   158                                                               [1, 0.05, 1, 2, 1],
+   159                                                               [1.2, 0.05, 1, 2, 2],
+   160                                                               [1.5, 0.1, 0.8, 1, 2],
+   161                                                               [1.8, 0.05, 0.5, 0.1, 2],
+   162                                                           ]
+   163                                                       )
+   164                                           
+   165                                                       signals, results = _ecg_simulate_ecgsyn(
+   166                                                           sfecg=sampling_rate,
+   167                                                           N=approx_number_beats,
+   168                                                           hrmean=heart_rate,
+   169                                                           hrstd=heart_rate_std,
+   170                                                           sfint=sampling_rate,
+   171                                                           gamma=gamma,
+   172                                                           morphology_params=morphology_params,
+   173                                                           rng=rng,
+   174                                                           **kwargs,
+   175                                                       )
+   176                                                   else:
+   177         3 1762193363.2    6e+08    100.0              signals, results = _ecg_simulate_ecgsyn(
+   178         1          0.1      0.1      0.0                  sfecg=sampling_rate,
+   179         1          0.1      0.1      0.0                  N=approx_number_beats,
+   180         1          0.1      0.1      0.0                  hrmean=heart_rate,
+   181         1          0.2      0.2      0.0                  hrstd=heart_rate_std,
+   182         1          0.1      0.1      0.0                  sfint=sampling_rate,
+   183         1          9.3      9.3      0.0                  gamma=np.ones((1, 5)),
+   184         1          0.1      0.1      0.0                  morphology_params=morphology_params,
+   185         1          0.1      0.1      0.0                  rng=rng,
+   186         1          0.1      0.1      0.0                  **kwargs,
+   187                                                       )
+   188                                                   # Cut to match expected length
+   189                                                   for i in range(len(signals)):
+   190                                                       signals[i] = signals[i][0:length]
+   191                                           
+   192                                               # Add random noise
+   193                                               if noise > 0:
+   194                                                   # Seed for random noise
+   195                                                   random_state_distort = check_random_state_children(random_state, random_state_distort, n_children=len(signals))
+   196                                                   # Call signal_distort on each signal
+   197                                                   for i in range(len(signals)):
+   198                                                       signals[i] = signal_distort(
+   199                                                           signals[i],
+   200                                                           sampling_rate=sampling_rate,
+   201                                                           noise_amplitude=noise,
+   202                                                           noise_frequency=[5, 10, 100],
+   203                                                           noise_shape="laplace",
+   204                                                           random_state=random_state_distort[i],
+   205                                                           silent=True,
+   206                                                       )
+   207                                           
+   208                                               # Format
+   209                                               if len(signals) == 1:
+   210                                                   ecg = signals[0]
+   211                                               else:
+   212                                                   ecg = pd.DataFrame(
+   213                                                       np.array(signals).T,
+   214                                                       columns=["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"],
+   215                                                   )
+   216                                           
+   217                                               return ecg
+
+Total time: 1451.16 s
+File: /gpfs/commons/home/aelhussein/miniconda3/envs/fl_ts_env/lib/python3.11/site-packages/neurokit3/ecg/ecg_simulate.py
+Function: _ecg_simulate_ecgsyn at line 318
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   318                                           @profile
+   319                                           def _ecg_simulate_ecgsyn(
+   320                                               sfecg=256,
+   321                                               N=256,
+   322                                               hrmean=60,
+   323                                               hrstd=1,
+   324                                               lfhfratio=0.5,
+   325                                               sfint=512,
+   326                                               ti=(-70, -15, 0, 15, 100),
+   327                                               ai=(1.2, -5, 30, -7.5, 0.75),
+   328                                               bi=(0.25, 0.1, 0.1, 0.1, 0.4),
+   329                                               gamma=np.ones((1, 5)),
+   330                                               morphology_params=None,
+   331                                               rng=None,
+   332                                               **kwargs,
+   333                                           ):
+   371                                           
+   372                                               # Convert default parameters to numpy arrays
+   373         1          0.9      0.9      0.0      if not isinstance(ti, np.ndarray):
+   374         1          1.7      1.7      0.0          ti = np.array(ti, dtype=np.float64)
+   375         1          0.2      0.2      0.0      if not isinstance(ai, np.ndarray):
+   376         1          0.9      0.9      0.0          ai = np.array(ai, dtype=np.float64)
+   377         1          0.2      0.2      0.0      if not isinstance(bi, np.ndarray):
+   378         1          0.8      0.8      0.0          bi = np.array(bi, dtype=np.float64)
+   379                                           
+   380                                               # Handle custom morphology parameters BEFORE HR scaling
+   381         1          0.1      0.1      0.0      freeze_morphology = False
+   382         1          0.5      0.5      0.0      if morphology_params is not None:
+   383                                                   ti_user = morphology_params.get("ti", ti)
+   384                                                   ai_user = morphology_params.get("ai", ai) 
+   385                                                   bi_user = morphology_params.get("bi", bi)
+   386                                                   freeze_morphology = morphology_params.get("freeze_morphology", False)
+   387                                                   
+   388                                                   # Convert to numpy arrays
+   389                                                   if not isinstance(ti_user, np.ndarray):
+   390                                                       ti_user = np.array(ti_user, dtype=np.float64)
+   391                                                   if not isinstance(ai_user, np.ndarray):
+   392                                                       ai_user = np.array(ai_user, dtype=np.float64)
+   393                                                   if not isinstance(bi_user, np.ndarray):
+   394                                                       bi_user = np.array(bi_user, dtype=np.float64)
+   395                                               else:
+   396         1          0.2      0.2      0.0          ti_user, ai_user, bi_user = ti, ai, bi
+   397                                           
+   398                                               # Convert angles from degrees to radians
+   399         1          6.7      6.7      0.0      ti_user = ti_user * np.pi / 180
+   400                                           
+   401                                               # Apply HR-dependent scaling only if not frozen (for pathological conditions)
+   402         1          0.1      0.1      0.0      if not freeze_morphology:
+   403         1          1.6      1.6      0.0          hrfact = np.sqrt(hrmean / 60)
+   404         1          1.0      1.0      0.0          hrfact2 = np.sqrt(hrfact)
+   405         1          2.1      2.1      0.0          bi_user = hrfact * bi_user
+   406         1          3.3      3.3      0.0          ti_user = np.array([hrfact2, hrfact, 1, hrfact, hrfact2], dtype=np.float64) * ti_user
+   407                                           
+   408                                               # Check that sfint is an integer multiple of sfecg
+   409         1          5.9      5.9      0.0      q = int(np.round(sfint / sfecg))
+   410         1          0.2      0.2      0.0      qd = sfint / sfecg
+   411         1          0.5      0.5      0.0      if q != qd:
+   412                                                   raise ValueError(
+   413                                                       f"Internal sampling frequency (sfint) must be an integer multiple of the ECG sampling frequency"
+   414                                                       f" (sfecg). Your current choices are: sfecg = {sfecg} and sfint = {sfint}."
+   415                                                   )
+   416                                           
+   417                                               # Define frequency parameters for rr process
+   418                                               # flo and fhi correspond to the Mayer waves and respiratory rate respectively
+   419         1          0.1      0.1      0.0      flo = 0.1
+   420         1          0.1      0.1      0.0      fhi = 0.25
+   421         1          0.1      0.1      0.0      flostd = 0.01
+   422         1          0.3      0.3      0.0      fhistd = 0.01
+   423                                           
+   424                                               # Calculate time scales for rr and total output
+   425         1          0.1      0.1      0.0      sfrr = 1
+   426         1          0.1      0.1      0.0      trr = 1 / sfrr
+   427         1          0.2      0.2      0.0      rrmean = 60 / hrmean
+   428         1         16.0     16.0      0.0      n = 2 ** (np.ceil(np.log2(N * rrmean / trr)))
+   429                                           
+   430         1        249.5    249.5      0.0      rr0 = _ecg_simulate_rrprocess(flo, fhi, flostd, fhistd, lfhfratio, hrmean, hrstd, sfrr, n, rng)
+   431                                           
+   432                                               # Upsample rr time series from 1 Hz to sfint Hz
+   433         1       9581.4   9581.4      0.0      rr = signal_resample(rr0, sampling_rate=1, desired_sampling_rate=sfint)
+   434                                           
+   435                                               # Make the rrn time series
+   436         1          0.6      0.6      0.0      dt = 1 / sfint
+   437         1         26.9     26.9      0.0      rrn = np.zeros(len(rr), dtype=np.float64)
+   438         1          0.3      0.3      0.0      tecg = 0
+   439         1          0.4      0.4      0.0      i = 0
+   440 386344952   62715379.9      0.2      4.3      while i < len(rr):
+   441 386344952   83523782.9      0.2      5.8          tecg += rr[i]
+   442 386344952  944954211.4      2.4     65.1          ip = int(np.round(tecg / dt))
+   443 386344951   68126672.7      0.2      4.7          if ip >= len(rrn):
+   444 386344666   73388198.0      0.2      5.1              ip = len(rrn) - 1
+   445 386344951  179876310.4      0.5     12.4          rrn[i:ip] = rr[i]
+   446 386344951   38566899.9      0.1      2.7          i = ip
+   447                                               Nt = ip
+   448                                           
+   449                                               # Prepare for ODE integration
+   450                                               x0 = np.array([1.0, 0.0, 0.04], dtype=np.float64)
+   451                                               t_eval = np.linspace(0, (Nt - 1) * dt, Nt, dtype=np.float64)
+   452                                           
+   453                                               # Initialize results containers
+   454                                               results = []
+   455                                               signals = []
+   456                                           
+   457                                               # Loop over leads
+   458                                               for lead in range(len(gamma)):
+   459                                                   # Prepare lead-specific parameters
+   460                                                   ai_lead = gamma[lead] * ai_user
+   461                                                   
+   462                                                   # Solve using fast Numba-compiled RK4 solver
+   463                                                   X0 = _rk4_solver_numba(x0, t_eval, dt, rrn, ti_user, sfint, ai_lead, bi_user)
+   464                                                   
+   465                                                   # Store results (dummy for compatibility)
+   466                                                   results.append({"y": X0})
+   467                                                   
+   468                                                   # Downsample to required sfecg
+   469                                                   X = X0[:, np.arange(0, X0.shape[1], q).astype(int)]
+   470                                           
+   471                                                   # Scale signal to lie between -0.4 and 1.2 mV
+   472                                                   z = X[2, :].copy()
+   473                                                   zmin = np.min(z)
+   474                                                   zmax = np.max(z)
+   475                                                   zrange = zmax - zmin
+   476                                                   if zrange > 0:
+   477                                                       z = (z - zmin) * 1.6 / zrange - 0.4
+   478                                                   else:
+   479                                                       z = np.zeros_like(z) - 0.4
+   480                                           
+   481                                                   signals.append(z)
+   482                                           
+   483                                               return signals, results
+

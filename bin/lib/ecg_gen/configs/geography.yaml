@@ -1,0 +1,15 @@
+# configs/geography.yaml
+# Defines region-specific environmental parameters.
+
+north_america:
+  weight: 0.50  # 50% of simulated clients will be in North America
+  powerline_frequency_hz: 60
+  # Future potential: regional equipment standards, etc.
+
+europe:
+  weight: 0.40  # 40% of clients in Europe
+  powerline_frequency_hz: 50
+
+asia_pacific:
+  weight: 0.10  # 10% of clients in Asia-Pacific
+  powerline_frequency_hz: 50

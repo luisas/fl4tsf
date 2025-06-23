@@ -1,0 +1,62 @@
+# Cardiac event definitions with archetype-specific prevalence
+# Events cluster in time and have refractory periods
+
+pvc_isolated:
+  description: "Isolated premature ventricular contractions"
+  base_prob_per_minute: 0.002
+  archetype_prevalence_multiplier:
+    healthy_young: 1.0
+    athlete: 2.0           # Higher due to training stress
+    elderly_frail: 5.0
+    cardiac_outpatient: 12.0
+    icu_critical: 15.0
+
+pvc_storm:
+  description: "Clusters of premature ventricular contractions"
+  base_prob_per_minute: 0.0005
+  cluster_prob_if_one_occurs: 0.4
+  cluster_duration_minutes: [5, 45]
+  refractory_period_minutes: [30, 240]
+  archetype_prevalence_multiplier:
+    healthy_young: 0.5
+    athlete: 1.0
+    elderly_frail: 8.0
+    cardiac_outpatient: 15.0
+    icu_critical: 25.0
+
+atrial_fibrillation:
+  description: "Atrial fibrillation episodes"
+  base_prob_per_minute: 0.0001
+  cluster_prob_if_one_occurs: 0.3
+  cluster_duration_minutes: [10, 480]  # Can be quite long
+  refractory_period_minutes: [60, 1440]
+  archetype_prevalence_multiplier:
+    healthy_young: 0.1
+    athlete: 1.5           # Paradoxically higher in endurance athletes
+    elderly_frail: 8.0
+    cardiac_outpatient: 20.0
+    icu_critical: 30.0
+
+st_depression:
+  description: "ST segment depression (ischemia)"
+  base_prob_per_minute: 0.0002
+  cluster_prob_if_one_occurs: 0.6
+  cluster_duration_minutes: [2, 30]
+  refractory_period_minutes: [15, 120]
+  archetype_prevalence_multiplier:
+    healthy_young: 0.1
+    athlete: 0.5
+    elderly_frail: 5.0
+    cardiac_outpatient: 12.0
+    icu_critical: 18.0
+
+baseline_wander:
+  description: "Low frequency baseline drift"
+  base_prob_per_minute: 0.1         # Very common
+  archetype_prevalence_multiplier:
+    healthy_young: 0.5
+    athlete: 2.0           # Motion artifacts
+    elderly_frail: 1.0
+    cardiac_outpatient: 1.5
+    icu_critical: 3.0      # Equipment interference
+
