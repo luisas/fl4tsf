@@ -307,7 +307,6 @@ def variable_time_collate_fn(batch, args, device = torch.device("cpu"), data_typ
 		combined_vals: (M, T, D) tensor containing the observed values.
 		combined_mask: (M, T, D) tensor containing 1 where values were observed and 0 otherwise.
 	"""
-	print("Collating batch of variable time series data...device: ", device)
 	D = batch[0][2].shape[1]
 	combined_tt, inverse_indices = torch.unique(torch.cat([ex[1] for ex in batch]), sorted=True, return_inverse=True)
 	combined_tt = combined_tt.to(device)

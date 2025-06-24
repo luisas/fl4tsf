@@ -8,7 +8,6 @@ process FEDERATED_TRAINING {
         'oras://community.wave.seqera.io/library/pip_flwr-datasets_flwr_matplotlib_pruned:c1a4d380c9f71c94' :
         'community.wave.seqera.io/library/pip_flwr-datasets_flwr_numpy_pruned:37e97d65f19bcbe8' }"
 
-
     input:
     tuple val(meta), path(data)
     path(bin)

@@ -31,7 +31,10 @@ def gen_evaluate_fn(
         net = Net()
         set_weights(net, parameters_ndarrays)
         net.to(device)
-        loss, accuracy = test(net, testloader, device=device, kl_coef = 0.993)
+        loss, accuracy = test(net, testloader, device=device)
+        print("############################# I am evaluating the model on the centralized test set.##############################")
+        print(f"Round {server_round}")
+        print(f"Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
         return loss, {"centralized_accuracy": accuracy}
 
     return evaluate
@@ -120,9 +123,19 @@ def server_fn(context: Context, nrounds: int = 4):
             data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
             data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
 
+        # TEST - TODO: remove
+        test_dataset = torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True)
+        data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
+        data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
+        print(f"Data min shape: {data_min.shape}, Data max shape: {data_max.shape}")
+        
+
         testloader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
             collate_fn= lambda batch: variable_time_collate_fn(batch, args, server_device, data_type = "test",
                 data_min = data_min, data_max = data_max))
+        
+        # save test dataset
+        torch.save(test_dataset, os.path.join(data_folder, "full_test_dataset.pt"))
     else:
         test_dataset = torch.cat([
             torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
