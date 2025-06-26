@@ -5,6 +5,7 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from types import SimpleNamespace
 from flwr.common.typing import UserConfig
+
 from lib.rnn_baselines import *
 from lib.ode_rnn import *
 from lib.create_latent_ode_model import create_LatentODE_model
@@ -19,15 +21,14 @@ from lib.parse_datasets import parse_datasets
 from lib.ode_func import ODEFunc, ODEFunc_w_Poisson
 from lib.diffeq_solver import DiffeqSolver
 from lib.parse_datasets import parse_datasets
-from lib.collate_functions import basic_collate_fn
+from flower.get_dataset import basic_collate_fn
 from flower.model_config import get_model_config
-from lib.physionet import variable_time_collate_fn
 
 def Net():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_config = get_model_config(file_path="model.config")
-    #print("Model configuration:", model_config)
+
     obsrv_std = float(model_config["obsrv_std"])
     poisson = model_config["poisson"] == "True"
     rec_layers = int(model_config["rec_layers"])
@@ -65,9 +66,8 @@ def Net():
                                     n_labels = n_labels)
     return model
 
-kl_coef = 0.0
 
-def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False ):
+def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True ):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     net.train()  # Set the model to training mode
@@ -93,7 +93,7 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
     # So that we can use the same kl_coef for training and testing
     n_total_iters = epochs * n_batches
     global kl_coef 
-    #kl_coef = 0.993
+    kl_coef = 0.993
     for itr in range(1, n_total_iters + 1):
 
         # Set the epoch
@@ -107,10 +107,10 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
 
         # KL annealing
         wait_until_kl_inc = 10
-        if itr < wait_until_kl_inc:
+        if epoch < wait_until_kl_inc:
             kl_coef = 0.
         else:
-            kl_coef = (1-0.99** (itr - wait_until_kl_inc))
+            kl_coef = (1-0.99** (epoch - wait_until_kl_inc))
 
         # Get the next batch
         batch_dict = utils.get_next_batch(trainloader)
@@ -143,17 +143,14 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
         nodesolve = train_res["nodesolve"]
         nodesolves.append(nodesolve)
         running_loss += loss
-    
 
         if itr % n_batches == 0:
-            nodesolves_epoch.append(sum(nodesolves)/len(nodesolves))
-            nodesolves = []
             if loss_per_epoch:
                 epoch_loss.append(loss)
                 epoch_mse.append(mse)
             print(f"Epoch {itr // n_batches} / {epochs}, loss: {loss:.4f}, mse: {train_res['mse'].item():.4f}, kl_coef: {kl_coef:.4f}, pois_likelihood: {pois_likelihood:.4f}, ce_loss: {ce_loss:.4f}, kl_first_p: {kl_first_p:.4f}, std_first_p: {std_first_p:.4f}")
             # store the weights of the model
-            if decay_rate < 1.0 and itr > 1:
+            if decay_rate < 1.0 and itr > 1:    
                 utils.update_learning_rate(optimizer, decay_rate = decay_rate, lowest = lr/10)
             lrs.append(optimizer.param_groups[0]['lr'])
             # Validation evaluation
@@ -161,67 +158,61 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=False 
                 val_l, val_m = test(net, valloader, device)
                 val_loss.append(val_l)
                 val_mse.append(val_m)
-                #print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
-            # # print learnging rate
-            # for param_group in optimizer.param_groups:
-            #     print(f"Learning rate: {param_group['lr']:.4f}")
+                print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
+            # print learnging rate
+            for param_group in optimizer.param_groups:
+                print(f"Learning rate: {param_group['lr']:.4f}")
 
     avg_trainloss = running_loss/n_batches
 
+    # print weights
     file_store = None
-    print(model_config["storeweights"])
-    if(model_config["storeweights"] == "True" or model_config["storeweights"] == True):
-        
+    if(model_config["storeweights"] == "True"):
         w = get_weights(net)
+        # store them 
         random_id = str(int(torch.randint(0, 1000000, (1,)).item()))
         file_store = f"weights_{random_id}.pt"
-        print("Storing weights...{}".format(file_store))
-        #store also grad norms
-        grad_norms = OrderedDict(grad_norms)
-        torch.save(grad_norms, f"grad_norms_{random_id}.json")
         torch.save(w, file_store)
+    
     
     dict_metrics = {
         "train_loss": epoch_loss,
         "train_mse": epoch_mse,
         "val_loss": val_loss if loss_per_epoch else None,
         "val_mse": val_mse if loss_per_epoch else None,
-        "nodesolves": nodesolves_epoch,
+        "nodesolves": nodesolves,
         "weights": file_store,
         "grad_norms": grad_norms,
         "lr": lrs
-    }
-    
-    return avg_trainloss, nodesolves_epoch, dict_metrics
 
-def test(net, dataloader, device, kl_coef = 1.0):    
+    }
+
+    print(f"nodesolves: {nodesolves}")
+    print(f"Nodesolves per epoch: {nodesolves_epoch}")
+
+    return avg_trainloss, sum(nodesolves), dict_metrics
+
+
+def test(net, dataloader, device, kl_coef = 0.0):    
     """Validate the model on the test set."""
     net.to(device)
     net.eval()
     n_batches = len(dataloader)
-    print(f"----------- TESTING: Number of batches in test set: {n_batches}")
     dataloader = utils.inf_generator(dataloader)
 
     total_loss = 0.0
     total_mse = 0.0
-    total_samples = 0.0
 
     with torch.no_grad():
         for _ in range(n_batches):
             batch_dict = utils.get_next_batch(dataloader)
-            # print how big is a bin 
-            batch_size = batch_dict["observed_data"].shape[0]  # or len(batch_dict["data"])
-
-            print("Batch size: ", batch_size)
             batch_dict = utils.move_to_device(batch_dict, device)
             res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
-            total_loss += res["loss"].item() * batch_size
-            total_mse += res["mse"].item() * batch_size
-            total_samples += batch_size
-            print("**** Batch loss: ", res["loss"].item())
+            total_loss += res["loss"].item()
+            total_mse += res["mse"].item()
 
-    avg_loss = total_loss / total_samples
-    avg_mse = total_mse / total_samples
+    avg_loss = total_loss / n_batches
+    avg_mse = total_mse / n_batches
 
     return avg_loss, avg_mse
 

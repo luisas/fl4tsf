@@ -109,6 +109,7 @@ class CustomFedAvg(FedAvg):
         """Run centralized evaluation if callback was passed to strategy init."""
         loss, metrics = super().evaluate(server_round, parameters)
 
+        print(f"Round {server_round} - Centralized Loss: {loss:.4f}, Metrics: {metrics}")
         # Save model if new best central accuracy is found
         self._update_best_acc(server_round, metrics["centralized_accuracy"], parameters)
 
@@ -162,9 +163,12 @@ class CustomFedAvg(FedAvg):
 
         if(self.aggregate_fun_name == "FedAvg"):
             # Aggregate using average
+            print("Using FedAvg aggregation===================================")
             parameters_aggregated, metrics_aggregated = aggregate_avg(weights_results)
         elif(self.aggregate_fun_name == "FedODE"):
             # Aggregate using ODE
+            print("Using FedODE aggregation===================================")
+
             parameters_aggregated, metrics_aggregated = aggregate_ode(weights_results, self.alpha)
         else:
             raise ValueError(f"Unknown aggregation function: {self.aggregate_fun_name}")    
@@ -185,7 +189,7 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
     # the length of results is the number of clients
     # Each element of results is a tuple (weights, num_examples)
     # Weights are a list of NDArrays
-    
+    print("Using ODE aggregation===================================")
     # Extract num_examples and num_steps from results
     num_examples_list = [num_examples for _, num_examples, _ in results]
     num_steps_list = [num_steps for _, _, num_steps in results]
@@ -231,6 +235,7 @@ def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
     # Calculate the total number of examples used during training
     num_examples_total = sum(num_examples for (_, num_examples, _) in results)
 
+    print("Using FedAvg aggregation===================================")
 
     # Create a list of weights, each multiplied by the related number of examples
     weighted_weights = [
@@ -246,4 +251,5 @@ def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
         "num_clients": len(results),
     }
     return weights_prime, metrics_aggregated
+
 

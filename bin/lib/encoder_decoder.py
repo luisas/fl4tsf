@@ -26,8 +26,7 @@ class GRU_unit(nn.Module):
 		super(GRU_unit, self).__init__()
 		#print(latent_dim)
 		#print(input_dim)
-		print("GRU unit: latent_dim {}, input_dim {}, n_units {}".format(
-			latent_dim, input_dim, n_units))
+		#print("GRU unit: latent_dim {}, input_dim {}, n_units {}".format(latent_dim, input_dim, n_units))
 		#print(n_units)
 		if update_gate is None:
 			self.update_gate = nn.Sequential(

@@ -45,14 +45,11 @@ class FlowerClient(NumPyClient):
         set_weights(self.net, parameters)
         self.net.to(self.device)
         #config = get_model_config(file_path="model.config")
-        # print round
         learning_rate = float(config["lr"])
-
 
         # Override weights in classification layer with those this client
         # had at the end of the last fit() round it participated in
         #self._load_layer_weights_from_state()
-
 
         train_loss, nodesolve, metric_dict = train(
             net = self.net,
@@ -60,22 +57,14 @@ class FlowerClient(NumPyClient):
             valloader = self.valloader,
             epochs = self.local_epochs,
             lr=learning_rate,
-            device=self.device,
-            loss_per_epoch=True,
+            device=self.device
         )
-        epoch_loss = metric_dict["train_loss"]
-        epoch_mse = metric_dict["train_mse"]
-        val_loss = metric_dict["val_loss"]
-        val_mse = metric_dict["val_mse"]
-        nodesolves = metric_dict["nodesolves"]
-        weights = metric_dict["weights"]
-        grad_norms = metric_dict["grad_norms"]
-        lr = metric_dict["lr"]
+
 
         self._store_results(
             tag="client_train",
             client=self.num_client,
-            results_dict={"train_loss": epoch_loss, "train_mse": epoch_mse, "val_loss": val_loss, "val_mse": val_mse, "nodesolve": nodesolves, "weights": weights, "grad_norms": grad_norms, "lr": lr},
+            results_dict=metric_dict
         )
 
         # Save classification head to context's state to use in a future fit() call
@@ -137,7 +126,6 @@ class FlowerClient(NumPyClient):
 
     def evaluate(self, parameters, config):
         """Evaluate the global model on the local validation set.
-
         Note the classification head is replaced with the weights this client had the
         last time it trained the model.
         """
@@ -146,7 +134,7 @@ class FlowerClient(NumPyClient):
         # had at the end of the last fit() round it participated in
         # self._load_layer_weights_from_state()
         self.net.to(self.device)
-        loss, accuracy = test(self.net, self.valloader, self.device, kl_coef = 0.993)
+        loss, accuracy = test(self.net, self.valloader, self.device)
         return loss, len(self.valloader.dataset), {"accuracy": accuracy}
 
 
@@ -167,7 +155,7 @@ def client_fn(context: Context):
     client_state = context.state
 
     return FlowerClient(
-        net, client_state, trainloader,valloader, local_epochs, partition_id
+        net, client_state, trainloader, valloader, local_epochs, partition_id
     ).to_client()
 
 

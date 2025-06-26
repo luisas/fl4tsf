@@ -1,1 +1,3 @@
-python centralized_train.py --dataset physionet_filtered --sample_tp 0.5 --batch_size 50 --epochs 2 --lr 0.01  --dataset_name "../data/physionet_filtered/client_0" --output_dir "../results_test/"
+#python centralized_train.py --dataset physionet_filtered --sample_tp 0.5 --batch_size 50 --epochs 10 --lr 0.01  --dataset_name "../data/physionet_filtered/client_0" --output_dir "../results_test/"
+
+python centralized_train.py --dataset freq_steps_maxfreq_0.1 --sample_tp 0.5 --batch_size 64 --epochs 10 --lr 0.01  --dataset_name "../data/freq_steps_maxfreq_0.1/client_0" --output_dir "../results_test/"

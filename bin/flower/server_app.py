@@ -31,10 +31,11 @@ def gen_evaluate_fn(
         net = Net()
         set_weights(net, parameters_ndarrays)
         net.to(device)
-        loss, accuracy = test(net, testloader, device=device)
-        print("############################# I am evaluating the model on the centralized test set.##############################")
-        print(f"Round {server_round}")
-        print(f"Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
+        loss, accuracy = test(net, testloader, device=device, kl_coef = 0.993)
+        print("-------------- centralized evaluation -------------------------------")
+        print(f"Total examples in testloader: {len(testloader.dataset)}")
+        print(f"Round {server_round} - Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
+        print("---------------------------------------------------------------------")
         return loss, {"centralized_accuracy": accuracy}
 
     return evaluate
@@ -54,7 +55,8 @@ def on_fit_config(server_round: int):
 
 # Define metric aggregation function
 def weighted_average(metrics):
-
+    print("-------------- weighted average aggregation -------------------------------")
+    print(f"Metrics: {metrics}")
     # Multiply accuracy of each client by number of examples used
     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
     #losses = [num_examples * m["loss"] for num_examples, m in metrics]
@@ -91,7 +93,6 @@ def server_fn(context: Context, nrounds: int = 4):
     extrap = bool(model_config["extrap"])
     data_folder = model_config["data_folder"]
 
-
     # Identify partitions 
     partitions = {
         "_".join(f.split("_")[:2])
@@ -99,17 +100,9 @@ def server_fn(context: Context, nrounds: int = 4):
         if f.startswith("client") and f.endswith("test.pt")
     }
 
-    print(f"Found partitions: {sorted(partitions)}")
-    # test_dataset = torch.cat([
-    #     torch.load( os.path.join(data_folder,f"{p}_test.pt"), weights_only=True) for p in partitions
-    # ], dim=0)
-    # test_timestamps = torch.cat([
-    #     torch.load( os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
-    # ], dim=0)
-
     print(f"Loading test dataset from {data_folder}...")
+    print(f"list files in data folder: {os.listdir(data_folder)}")
     print(f"Partitions: {partitions}")
-
 
     if "physionet" in dataset_name :
         from types import SimpleNamespace
@@ -124,18 +117,15 @@ def server_fn(context: Context, nrounds: int = 4):
             data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
 
         # TEST - TODO: remove
-        test_dataset = torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True)
-        data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
-        data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
-        print(f"Data min shape: {data_min.shape}, Data max shape: {data_max.shape}")
+        # test_dataset = torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True)
+        # data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
+        # data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
+        # print(f"Data min shape: {data_min.shape}, Data max shape: {data_max.shape}")
         
-
         testloader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
             collate_fn= lambda batch: variable_time_collate_fn(batch, args, server_device, data_type = "test",
                 data_min = data_min, data_max = data_max))
-        
-        # save test dataset
-        torch.save(test_dataset, os.path.join(data_folder, "full_test_dataset.pt"))
+
     else:
         test_dataset = torch.cat([
             torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
@@ -144,9 +134,9 @@ def server_fn(context: Context, nrounds: int = 4):
             torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
         ], dim=0)
         test_timestamps =  test_timestamps[0]
-        print(f"Test timestamps shape: {test_timestamps.shape}")    
         testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
             collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+
 
     strategy = CustomFedAvg(
         run_config=run_config,
