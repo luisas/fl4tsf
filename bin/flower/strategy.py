@@ -153,7 +153,6 @@ class CustomFedAvg(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
         
-
         weights_results = [
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"], fit_res.metrics["client_id"])
             for _, fit_res in results
