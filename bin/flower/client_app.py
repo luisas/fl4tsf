@@ -61,6 +61,7 @@ class FlowerClient(NumPyClient):
         )
 
 
+
         self._store_results(
             tag="client_train",
             client=self.num_client,
@@ -74,7 +75,7 @@ class FlowerClient(NumPyClient):
         return (
             get_weights(self.net),
             len(self.trainloader.dataset),
-            {"train_loss": train_loss,  "nodesolve": nodesolve}
+            {"train_loss": train_loss,  "nodesolve": nodesolve, "client_id": self.num_client}
         )
     # def _save_layer_weights_to_state(self):
     #     """Save last layer weights to state."""

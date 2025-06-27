@@ -159,10 +159,6 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True )
                 val_l, val_m = test(net, valloader, device)
                 val_loss.append(val_l)
                 val_mse.append(val_m)
-                print(f"Validation loss: {val_l:.4f}, mse: {val_m:.4f}")
-            # print learnging rate
-            for param_group in optimizer.param_groups:
-                print(f"Learning rate: {param_group['lr']:.4f}")
 
     avg_trainloss = running_loss/n_batches
 
@@ -188,13 +184,10 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True )
 
     }
 
-    print(f"nodesolves: {nodesolves}")
-    print(f"Nodesolves per epoch: {nodesolves_epoch}")
-
     return avg_trainloss, sum(nodesolves), dict_metrics
 
 
-def test(net, dataloader, device, kl_coef = 0.0):    
+def test(net, dataloader, device, kl_coef = 1.0):    
     """Validate the model on the test set."""
     net.to(device)
     net.eval()
@@ -259,7 +252,6 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
 
     if "physionet" in dataset_name:
-        print("Loading Physionet dataset...")
         from types import SimpleNamespace
         args = SimpleNamespace()
         args.sample_tp = sample_tp
@@ -275,9 +267,8 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
             collate_fn= lambda batch: variable_time_collate_fn(batch, args, device, data_type = "test",
                 data_min = data_min, data_max = data_max))
 
-
     else:    
-        print("Loading dataset...")
+
         timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
         timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
         # take the first element of timestep tensors
@@ -290,49 +281,6 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
 
     return train_loader, validation_loader
 
-
-
-# def load_data_randompartition(partition_id: int, num_partitions: int, batch_size: int):
-#     """Load partition of periodic dataset for federated learning."""
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#     # Create the full periodic dataset
-#     # 0. Create the dataset (if not already created)
-
-#     global dataset
-#     global time_steps_extrap
-#     global basic_collate_fn
-#     global sample_tp
-#     global cut_tp
-#     global extrap
-#     global data_folder
-#     global dataset_name
-
-#     if dataset is None:
-#         model_config = get_model_config(file_path="model.config")
-#         dataset_name = model_config["dataset_name"]
-#         sample_tp = float(model_config["sample_tp"])
-#         cut_tp = None
-#         extrap = False
-#         data_folder = model_config["data_folder"]
-#         dataset, time_steps_extrap = get_dataset(dataset_name = dataset_name, type="train", data_folder=data_folder)
-
-
-#     # 1. Extract the partition
-#     partition_len = len(dataset) // num_partitions
-#     start = partition_id * partition_len
-#     end = (partition_id + 1) * partition_len if partition_id < num_partitions - 1 else len(dataset)
-#     partition_dataset = dataset[start:end, :, :]
-#     if len(partition_dataset) == 0:
-#         raise ValueError(f"Partition {partition_id} has 0 samples. Adjust num_partitions or dataset size.")
-
-#     train_dataset, validation_dataset = utils.split_train_test(partition_dataset, train_fraq = 0.8)
-
-#     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=False,
-#         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
-#     validation_loader = DataLoader(validation_dataset, batch_size = batch_size, shuffle=False,
-#         collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
-
-#     return train_loader, validation_loader
 
 
 def create_run_dir(config: UserConfig) -> Path:

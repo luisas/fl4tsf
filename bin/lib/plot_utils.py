@@ -6,7 +6,7 @@ from lib.latent_ode import LatentODE
 from lib.plot import plot_trajectories
 import matplotlib.pyplot as plt
 import torch
-from flower.lib.collate_functions import basic_collate_fn
+from lib.collate_functions import basic_collate_fn
 import pandas as pd
 import json
 
@@ -154,11 +154,11 @@ def read_loss_file(file):
     df_centralized_evaluate['dataset_name'] = meta_data['dataset_name'].item()
     # TODO clean 
     # extrat the last part of the dataset name
-    df_federated_evaluate['offset'] = df_federated_evaluate['dataset_name'].apply(lambda x: x.split('_')[-1])
-    df_centralized_evaluate['offset'] = df_centralized_evaluate['dataset_name'].apply(lambda x: x.split('_')[-1])
-    # make it float
-    df_federated_evaluate['offset'] = df_federated_evaluate['offset'].astype(float)
-    df_centralized_evaluate['offset'] = df_centralized_evaluate['offset'].astype(float)
+    # df_federated_evaluate['offset'] = df_federated_evaluate['dataset_name'].apply(lambda x: x.split('_')[-1])
+    # df_centralized_evaluate['offset'] = df_centralized_evaluate['dataset_name'].apply(lambda x: x.split('_')[-1])
+    # # make it float
+    # df_federated_evaluate['offset'] = df_federated_evaluate['offset'].astype(float)
+    # df_centralized_evaluate['offset'] = df_centralized_evaluate['offset'].astype(float)
 
     # alpha
     df_federated_evaluate['alpha'] = meta_data['alpha'].item()
@@ -242,3 +242,26 @@ def prepare_df_for_plotting(result_json, prefix = "noise", convergence_range=1.1
     df1['client'] = 1
     df_summary_lambdas = pd.concat([df0, df1], ignore_index=True)
     return df_summary, df_summary_lambdas
+
+def get_summary_lambdas(df_summary_aggregation):
+    df_summary_aggregation["steps_0"] = df_summary_aggregation['num_steps_list'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None)
+    df_summary_aggregation["steps_1"] = df_summary_aggregation['num_steps_list'].apply(lambda x: x[1] if isinstance(x, list) and len(x) > 1 else None)
+    # remove nan 
+    df_summary_aggregation = df_summary_aggregation.dropna(subset=['steps_0', 'steps_1'])
+    # do same thing for lambda
+    df_summary_aggregation["lambda_0"] = df_summary_aggregation['lambdas'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None)
+    df_summary_aggregation["lambda_1"] = df_summary_aggregation['lambdas'].apply(lambda x: x[1] if isinstance(x, list) and len(x) > 1 else None)
+    
+    # do same thing for client id
+    df_summary_aggregation["client_0"] = df_summary_aggregation['clients'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None)
+    df_summary_aggregation["client_1"] = df_summary_aggregation['clients'].apply(lambda x: x[1] if isinstance(x, list) and len(x) > 1 else None)
+  
+    
+    df_agg = df_summary_aggregation[["round", "steps_0", "steps_1", "lambda_0", "lambda_1", "alpha", "client_0", "client_1"]]
+
+    df0 = df_agg[['round', 'lambda_0', 'steps_0',  'alpha', 'client_0']].copy()
+    df0 = df0.rename(columns={'lambda_0': 'lambda', 'steps_0': 'steps', 'client_0': 'client'})
+    df1 = df_agg[['round', 'lambda_1', 'steps_1',  'alpha', 'client_1']].copy()
+    df1.rename(columns={'lambda_1': 'lambda', 'steps_1': "steps", 'client_1': "client"}, inplace=True)
+    df_summary_lambdas = pd.concat([df0, df1], ignore_index=True)
+    return df_summary_lambdas

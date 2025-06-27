@@ -109,7 +109,6 @@ class CustomFedAvg(FedAvg):
         """Run centralized evaluation if callback was passed to strategy init."""
         loss, metrics = super().evaluate(server_round, parameters)
 
-        print(f"Round {server_round} - Centralized Loss: {loss:.4f}, Metrics: {metrics}")
         # Save model if new best central accuracy is found
         self._update_best_acc(server_round, metrics["centralized_accuracy"], parameters)
 
@@ -124,7 +123,6 @@ class CustomFedAvg(FedAvg):
 
     def aggregate_evaluate(self, server_round, results, failures):
         """Aggregate results from federated evaluation."""
-        print(f"Results: {results}")
 
         loss, metrics = super().aggregate_evaluate(server_round, results, failures)
 
@@ -157,18 +155,15 @@ class CustomFedAvg(FedAvg):
         
 
         weights_results = [
-            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"], fit_res.metrics["client_id"])
             for _, fit_res in results
         ]
 
         if(self.aggregate_fun_name == "FedAvg"):
             # Aggregate using average
-            print("Using FedAvg aggregation===================================")
             parameters_aggregated, metrics_aggregated = aggregate_avg(weights_results)
         elif(self.aggregate_fun_name == "FedODE"):
             # Aggregate using ODE
-            print("Using FedODE aggregation===================================")
-
             parameters_aggregated, metrics_aggregated = aggregate_ode(weights_results, self.alpha)
         else:
             raise ValueError(f"Unknown aggregation function: {self.aggregate_fun_name}")    
@@ -179,7 +174,6 @@ class CustomFedAvg(FedAvg):
             tag="aggregation",
             results_dict=metrics_aggregated
         )
-
         return parameters_aggregated, {}
 
 def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
@@ -189,10 +183,11 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
     # the length of results is the number of clients
     # Each element of results is a tuple (weights, num_examples)
     # Weights are a list of NDArrays
-    print("Using ODE aggregation===================================")
     # Extract num_examples and num_steps from results
-    num_examples_list = [num_examples for _, num_examples, _ in results]
-    num_steps_list = [num_steps for _, _, num_steps in results]
+
+    num_examples_list = [num_examples for _, num_examples, _, _ in results]
+    num_steps_list = [num_steps for _, _, num_steps,_ in results]
+    clients = [client_id for _, _, _, client_id in results]
 
     # Total sums for normalization
     total_examples = sum(num_examples_list)
@@ -223,9 +218,9 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
         "total_steps": total_steps,
         "num_clients": len(results),
         "num_examples_list": num_examples_list,
-        "num_steps_list": num_steps_list
+        "num_steps_list": num_steps_list,
+        "clients": clients
     }
-
 
     return weights_prime, metrics_aggregated
 
@@ -234,8 +229,6 @@ def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
     """Compute weighted average."""
     # Calculate the total number of examples used during training
     num_examples_total = sum(num_examples for (_, num_examples, _) in results)
-
-    print("Using FedAvg aggregation===================================")
 
     # Create a list of weights, each multiplied by the related number of examples
     weighted_weights = [
