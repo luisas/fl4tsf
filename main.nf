@@ -195,8 +195,6 @@ workflow {
         .set { federated_data_and_params_ch }
 
 
-    training_data_ch.view()
-
     // Launch simulation
     FEDERATED_LEARNING_SIMULATION(centralized_data_and_params_ch,centralized_data_and_params_local_ch, federated_data_and_params_ch, bin_ch)
 
