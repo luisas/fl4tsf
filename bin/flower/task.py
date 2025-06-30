@@ -196,17 +196,21 @@ def test(net, dataloader, device, kl_coef = 1.0):
 
     total_loss = 0.0
     total_mse = 0.0
+    total_samples = 0
 
     with torch.no_grad():
         for _ in range(n_batches):
             batch_dict = utils.get_next_batch(dataloader)
             batch_dict = utils.move_to_device(batch_dict, device)
+            batch_size = batch_dict["observed_data"].size(0)
             res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
             total_loss += res["loss"].item()
             total_mse += res["mse"].item()
+            total_samples += batch_size
 
-    avg_loss = total_loss / n_batches
-    avg_mse = total_mse / n_batches
+
+    avg_loss = total_loss / total_samples
+    avg_mse = total_mse / total_samples
 
     return avg_loss, avg_mse
 
@@ -248,17 +252,17 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
     # load partitioned dataset
     partition_name = f"client_{partition_id}"
 
-    train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=True)
-    test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=True)
+    train_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_train.pt"), weights_only=False)
+    test_dataset = torch.load(os.path.join(data_folder, f"{partition_name}_test.pt"), weights_only=False)
 
-    if "physionet" in dataset_name:
+    if "physionet" in dataset_name or "ecg" in dataset_name:
         from types import SimpleNamespace
         args = SimpleNamespace()
         args.sample_tp = sample_tp
         args.cut_tp = cut_tp
         args.extrap = extrap
-        data_min = torch.load(os.path.join(data_folder, f"{partition_name}_data_min.pt"), weights_only=True)
-        data_max = torch.load(os.path.join(data_folder, f"{partition_name}_data_max.pt"), weights_only=True)
+        data_min = torch.load(os.path.join(data_folder, f"{partition_name}_data_min.pt"), weights_only=False)
+        data_max = torch.load(os.path.join(data_folder, f"{partition_name}_data_max.pt"), weights_only=False)
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,
             collate_fn=lambda batch: variable_time_collate_fn(batch, args, device, data_type="train",
@@ -269,8 +273,8 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
 
     else:    
 
-        timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=True)
-        timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=True)
+        timesteps_train = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_train.pt"), weights_only=False)
+        timesteps_test = torch.load(os.path.join(data_folder, f"{partition_name}_time_steps_test.pt"), weights_only=False)
         # take the first element of timestep tensors
         timesteps = timesteps_train[0]
 

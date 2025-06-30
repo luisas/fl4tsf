@@ -92,7 +92,7 @@ def server_fn(context: Context, nrounds: int = 4):
     }
 
 
-    if "physionet" in dataset_name :
+    if "physionet" in dataset_name or "ecg" in dataset_name:
         from types import SimpleNamespace
         args = SimpleNamespace()
         args.sample_tp = sample_tp
@@ -100,9 +100,9 @@ def server_fn(context: Context, nrounds: int = 4):
         args.extrap = extrap
         test_dataset = []
         for p in partitions:
-            test_dataset += torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True)
-            data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=True)
-            data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=True)
+            test_dataset += torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=False)
+            data_min = torch.load(os.path.join(data_folder, f"{p}_data_min.pt"), weights_only=False)
+            data_max = torch.load(os.path.join(data_folder, f"{p}_data_max.pt"), weights_only=False)
 
         
         testloader = DataLoader(test_dataset, batch_size= batch_size, shuffle=False,
@@ -111,10 +111,10 @@ def server_fn(context: Context, nrounds: int = 4):
 
     else:
         test_dataset = torch.cat([
-            torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=True) for p in partitions
+            torch.load(os.path.join(data_folder, f"{p}_test.pt"), weights_only=False) for p in partitions
         ], dim=0)
         test_timestamps = torch.cat([
-            torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=True) for p in partitions
+            torch.load(os.path.join(data_folder,f"{p}_time_steps_test.pt"), weights_only=False) for p in partitions
         ], dim=0)
         test_timestamps =  test_timestamps[0]
         testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,

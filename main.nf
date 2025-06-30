@@ -127,7 +127,7 @@ workflow {
     Channel
         .from(datasets)
         .map { ds ->
-            def files = file("${projectDir}/data/${ds}*/*")
+            def files = file("${params.data_folder}/${ds}*/*")
             def grouped = files.groupBy { f -> f.getParent().getName() }
             return grouped.collect { id, fileList ->
                 [ [id: id, dataset_name: id], fileList ]
@@ -193,7 +193,6 @@ workflow {
                 [meta + meta2, data]
         }
         .set { federated_data_and_params_ch }
-
 
     // Launch simulation
     FEDERATED_LEARNING_SIMULATION(centralized_data_and_params_ch,centralized_data_and_params_local_ch, federated_data_and_params_ch, bin_ch)

@@ -48,7 +48,7 @@ model = Net()
 train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=False)
 test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=False)
 
-if "physionet" in args.dataset:
+if "physionet" in args.dataset or "ecg" in args.dataset:
     print("Using PhysioNet dataset with variable time steps.")
     from types import SimpleNamespace
     args_physionet = SimpleNamespace()
