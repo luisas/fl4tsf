@@ -163,9 +163,6 @@ class Encoder_z0_RNN(nn.Module):
 		return mean.unsqueeze(0), std.unsqueeze(0)
 
 
-
-
-
 class Encoder_z0_ODE_RNN(nn.Module):
 	# Derive z0 by running ode backwards.
 	# For every y_i we have two versions: encoded from data and derived from ODE by running it backwards from t_i+1 to t_i
@@ -327,5 +324,4 @@ class Decoder(nn.Module):
 
 	def forward(self, data):
 		return self.decoder(data)
-
 
