@@ -288,7 +288,6 @@ class VAE_Baseline(nn.Module):
 			batch_dict["data_to_predict"], pred_y,
 			mask = batch_dict["mask_predicted_data"])
 
-
 		mse = self.get_mse(
 			batch_dict["data_to_predict"], pred_y,
 			mask = batch_dict["mask_predicted_data"])

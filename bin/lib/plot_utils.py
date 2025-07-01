@@ -257,11 +257,89 @@ def get_summary_lambdas(df_summary_aggregation):
     df_summary_aggregation["client_1"] = df_summary_aggregation['clients'].apply(lambda x: x[1] if isinstance(x, list) and len(x) > 1 else None)
   
     
-    df_agg = df_summary_aggregation[["round", "steps_0", "steps_1", "lambda_0", "lambda_1", "alpha", "client_0", "client_1"]]
+    df_agg = df_summary_aggregation[["round","dataset_name", "steps_0", "steps_1", "lambda_0", "lambda_1", "alpha", "client_0", "client_1"]]
 
-    df0 = df_agg[['round', 'lambda_0', 'steps_0',  'alpha', 'client_0']].copy()
+    df0 = df_agg[['round', "dataset_name",'lambda_0', 'steps_0',  'alpha', 'client_0']].copy()
     df0 = df0.rename(columns={'lambda_0': 'lambda', 'steps_0': 'steps', 'client_0': 'client'})
-    df1 = df_agg[['round', 'lambda_1', 'steps_1',  'alpha', 'client_1']].copy()
+    df1 = df_agg[['round',"dataset_name", 'lambda_1', 'steps_1',  'alpha', 'client_1']].copy()
     df1.rename(columns={'lambda_1': 'lambda', 'steps_1': "steps", 'client_1': "client"}, inplace=True)
     df_summary_lambdas = pd.concat([df0, df1], ignore_index=True)
     return df_summary_lambdas
+
+
+def plot_client_loss(file, type_loss ="train_loss", nrounds=None, log = False):
+
+    # Load JSON file
+    with open(file, "r") as f:
+        data = json.load(f)
+
+
+    # extarct from the file name the lr, batchsize, nlocalepochs, clipping, lrdecay
+    # remove the last part of the file name
+    file_path = file.replace("results_0.json", "")
+    file_path = file_path.replace("results_1.json", "")
+    meta_file = file_path + "meta.csv"
+    print(f"Loading meta data from {meta_file}")
+    meta_data = pd.read_csv(meta_file)
+    lr = meta_data['lr'].item()
+    batch_size = meta_data['batch_size'].item()
+    clipping = meta_data['gradientclipping'].item()
+    lrdecay = meta_data['lrdecay'].item()
+    nlocalepochs = meta_data['localepochs'].item()
+    decay_onset = meta_data['decay_onset'].item()
+    dataset_name = meta_data['dataset_name'].item()
+    #title = f"{dataset_name} \n lr: {lr}, batch_size: {batch_size}, nlocalepochs: {nlocalepochs}, decay_onset: {decay_onset}"
+    title = f"{dataset_name}"
+
+    # Extract loss values, rounds, and epochs
+    loss_values = []
+    rounds = []
+    epochs = []
+
+    epoch_count = 0  # To keep track of epochs
+
+    for entry in data["client_train"]:
+        round_number = entry["round"]
+        for loss in entry[type_loss]:
+            rounds.append(round_number)
+            loss_values.append(loss)
+            epochs.append(epoch_count)
+            epoch_count += 1
+
+    if nrounds is not None:
+        # Filter the data to only include the first n rounds
+        filtered_indices = [i for i, r in enumerate(rounds) if r < nrounds]
+        loss_values = [loss_values[i] for i in filtered_indices]
+        rounds = [rounds[i] for i in filtered_indices]
+        epochs = [epochs[i] for i in filtered_indices]
+
+    # make it smaller 
+    plt.figure(figsize=(10, 2.5))
+    # Plot loss values sequentially across rounds and epochs
+    plt.plot(epochs, loss_values, marker='o', label="Loss across epochs", markersize=2)
+
+    # add 1 to the round
+    # Add verl lines for each round number
+    for round_number in set(rounds):
+        round_epochs = [i for i, r in enumerate(rounds) if r == round_number]
+        if round_epochs:
+            # Place a vertical line at the first epoch of each round
+            # if it is not the first round
+            if round_number != 0:
+                plt.axvline(x=round_epochs[0], color='grey', linestyle='--', label=f"Round {round_number}", alpha=0.5, linewidth=1)
+
+    # Customize x-axis ticks to represent rounds
+    xticks = [i for i, round_number in enumerate(rounds) if i == 0 or rounds[i] != rounds[i-1]]
+    # plot it only every 10th round
+    xticks = [i for i in xticks if i % 100 == 0 or i == 0]
+    plt.xticks(xticks, [rounds[i] for i in xticks])
+    # log scale y 
+    if log == True:
+        plt.yscale('log')
+    # y starts at 0
+    plt.title(title)
+    plt.ylim(bottom=0)
+    plt.xlabel("Round")
+    plt.ylabel(f"Local {type_loss}")
+    plt.tight_layout()
+    plt.show()

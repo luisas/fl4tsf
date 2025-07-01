@@ -227,11 +227,11 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
 def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
     """Compute weighted average."""
     # Calculate the total number of examples used during training
-    num_examples_total = sum(num_examples for (_, num_examples, _) in results)
+    num_examples_total = sum(num_examples for (_, num_examples, _, _) in results)
 
     # Create a list of weights, each multiplied by the related number of examples
     weighted_weights = [
-        [layer * num_examples for layer in weights] for weights, num_examples, _ in results
+        [layer * num_examples for layer in weights] for weights, num_examples, _, _ in results
     ]
 
     # Compute average weights of each layer

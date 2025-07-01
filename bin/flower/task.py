@@ -196,7 +196,6 @@ def test(net, dataloader, device, kl_coef = 1.0):
 
     total_loss = 0.0
     total_mse = 0.0
-    total_samples = 0
 
     with torch.no_grad():
         for _ in range(n_batches):
@@ -206,11 +205,9 @@ def test(net, dataloader, device, kl_coef = 1.0):
             res = net.compute_all_losses(batch_dict, n_traj_samples=3, kl_coef=kl_coef)
             total_loss += res["loss"].item()
             total_mse += res["mse"].item()
-            total_samples += batch_size
 
-
-    avg_loss = total_loss / total_samples
-    avg_mse = total_mse / total_samples
+    avg_loss = total_loss / n_batches
+    avg_mse = total_mse / n_batches
 
     return avg_loss, avg_mse
 
