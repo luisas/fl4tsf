@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from flower.task import Net, load_data, train, test
-from flower.get_dataset import basic_collate_fn
+from lib.collate_functions import basic_collate_fn
 from lib.physionet import variable_time_collate_fn, get_data_min_max
 
 
@@ -37,7 +37,7 @@ lr = args.lr
 # Fix 
 cut_tp = None
 extrap = False
-data_folder = "." #../data/periodic/periodic
+data_folder = "."
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -48,7 +48,7 @@ model = Net()
 train_dataset     = torch.load(f"{data_folder}/{dataset_name}_train.pt", weights_only=False)
 test_dataset      = torch.load(f"{data_folder}/{dataset_name}_test.pt", weights_only=False)
 
-if "physionet" in args.dataset:
+if "physionet" in args.dataset or "ecg" in args.dataset:
     print("Using PhysioNet dataset with variable time steps.")
     from types import SimpleNamespace
     args_physionet = SimpleNamespace()

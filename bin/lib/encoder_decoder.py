@@ -24,9 +24,10 @@ class GRU_unit(nn.Module):
 		n_units = 100,
 		device = torch.device("cpu")):
 		super(GRU_unit, self).__init__()
-		print(latent_dim)
-		print(input_dim)
-		print(n_units)
+		#print(latent_dim)
+		#print(input_dim)
+		#print("GRU unit: latent_dim {}, input_dim {}, n_units {}".format(latent_dim, input_dim, n_units))
+		#print(n_units)
 		if update_gate is None:
 			self.update_gate = nn.Sequential(
 			   nn.Linear(latent_dim * 2 + input_dim, n_units),
@@ -160,9 +161,6 @@ class Encoder_z0_RNN(nn.Module):
 		assert(not torch.isnan(std).any())
 
 		return mean.unsqueeze(0), std.unsqueeze(0)
-
-
-
 
 
 class Encoder_z0_ODE_RNN(nn.Module):
@@ -326,5 +324,4 @@ class Decoder(nn.Module):
 
 	def forward(self, data):
 		return self.decoder(data)
-
 

@@ -123,7 +123,6 @@ class CustomFedAvg(FedAvg):
 
     def aggregate_evaluate(self, server_round, results, failures):
         """Aggregate results from federated evaluation."""
-        print(f"Results: {results}")
 
         loss, metrics = super().aggregate_evaluate(server_round, results, failures)
 
@@ -154,9 +153,8 @@ class CustomFedAvg(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
         
-
         weights_results = [
-            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"])
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples, fit_res.metrics["nodesolve"], fit_res.metrics["client_id"])
             for _, fit_res in results
         ]
 
@@ -175,7 +173,6 @@ class CustomFedAvg(FedAvg):
             tag="aggregation",
             results_dict=metrics_aggregated
         )
-
         return parameters_aggregated, {}
 
 def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
@@ -185,10 +182,11 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
     # the length of results is the number of clients
     # Each element of results is a tuple (weights, num_examples)
     # Weights are a list of NDArrays
-    
     # Extract num_examples and num_steps from results
-    num_examples_list = [num_examples for _, num_examples, _ in results]
-    num_steps_list = [num_steps for _, _, num_steps in results]
+
+    num_examples_list = [num_examples for _, num_examples, _, _ in results]
+    num_steps_list = [num_steps for _, _, num_steps,_ in results]
+    clients = [client_id for _, _, _, client_id in results]
 
     # Total sums for normalization
     total_examples = sum(num_examples_list)
@@ -219,9 +217,9 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
         "total_steps": total_steps,
         "num_clients": len(results),
         "num_examples_list": num_examples_list,
-        "num_steps_list": num_steps_list
+        "num_steps_list": num_steps_list,
+        "clients": clients
     }
-
 
     return weights_prime, metrics_aggregated
 
@@ -229,12 +227,11 @@ def aggregate_ode(results: list[tuple[NDArrays, int]], alpha =0.5) -> NDArrays:
 def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
     """Compute weighted average."""
     # Calculate the total number of examples used during training
-    num_examples_total = sum(num_examples for (_, num_examples, _) in results)
-
+    num_examples_total = sum(num_examples for (_, num_examples, _, _) in results)
 
     # Create a list of weights, each multiplied by the related number of examples
     weighted_weights = [
-        [layer * num_examples for layer in weights] for weights, num_examples, _ in results
+        [layer * num_examples for layer in weights] for weights, num_examples, _, _ in results
     ]
 
     # Compute average weights of each layer
@@ -246,4 +243,5 @@ def aggregate_avg(results: list[tuple[NDArrays, int]]) -> NDArrays:
         "num_clients": len(results),
     }
     return weights_prime, metrics_aggregated
+
 

@@ -15,7 +15,7 @@ def merge_datasets(data_type, prefix='merged'):
         print(f'Checking file: {filename}')
         # keep files that have name client_{a number}_{data_type}.pt and nothing ekse, use regex
         if is_valid_filename(filename, data_type):
-            dataset = torch.load(filename, weights_only=True)
+            dataset = torch.load(filename, weights_only=False)
             datasets.append(dataset)
     if datasets:
         merged_dataset = ConcatDataset(datasets)

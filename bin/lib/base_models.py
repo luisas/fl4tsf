@@ -288,7 +288,6 @@ class VAE_Baseline(nn.Module):
 			batch_dict["data_to_predict"], pred_y,
 			mask = batch_dict["mask_predicted_data"])
 
-
 		mse = self.get_mse(
 			batch_dict["data_to_predict"], pred_y,
 			mask = batch_dict["mask_predicted_data"])
@@ -334,7 +333,7 @@ class VAE_Baseline(nn.Module):
 		results = {}
 		results["loss"] = torch.mean(loss)
 		results["likelihood"] = torch.mean(rec_likelihood).detach()
-		results["mse"] = torch.mean(mse).detach()
+		results["mse"] = torch.mean(mse)
 		results["pois_likelihood"] = torch.mean(pois_log_likelihood).detach()
 		results["ce_loss"] = torch.mean(ce_loss).detach()
 		results["kl_first_p"] =  torch.mean(kldiv_z0).detach()

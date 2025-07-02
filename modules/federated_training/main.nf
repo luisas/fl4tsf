@@ -8,7 +8,6 @@ process FEDERATED_TRAINING {
         'oras://community.wave.seqera.io/library/pip_flwr-datasets_flwr_matplotlib_pruned:c1a4d380c9f71c94' :
         'community.wave.seqera.io/library/pip_flwr-datasets_flwr_numpy_pruned:37e97d65f19bcbe8' }"
 
-
     input:
     tuple val(meta), path(data)
     path(bin)
@@ -18,7 +17,7 @@ process FEDERATED_TRAINING {
     tuple val(meta), path("federated_outputs/*.json"), emit: metrics
     tuple val(meta), path("federated_outputs/*.pth") , emit: model
     path("federated_outputs/meta.csv")               , emit: meta_csv
-    path("weights*.pt")                              , emit: weights, optional: true
+    //path("weights*.pt")                              , emit: weights, optional: true
 
     when:
     task.ext.when == null || task.ext.when
@@ -32,7 +31,14 @@ process FEDERATED_TRAINING {
     export RAY_LOG_TO_STDERR=0
     export RAY_LOG_TO_FILE=1
     export RAY_LOG_DIR="./ray_logs"
-    ulimit -u 100000
+
+
+    # If NOT running on SLURM (likely local)
+    # TODO: this is a quick fix and only supports slurm executor but should be made cleaner
+    if [[ -n "\${SLURM_JOB_ID:-}" ]]; then
+        ulimit -u 10000
+    fi
+
     # Setup Ray environment
     export RAY_TMPDIR="/tmp/ray_tmp_luisa/\$RANDOM"
     mkdir -p "\$RAY_TMPDIR"
