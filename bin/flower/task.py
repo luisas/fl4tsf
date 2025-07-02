@@ -94,7 +94,6 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True )
     # So that we can use the same kl_coef for training and testing
     n_total_iters = epochs * n_batches
     global kl_coef 
-    kl_coef = 0.993
     for itr in range(1, n_total_iters + 1):
 
         # Set the epoch
@@ -108,10 +107,12 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True )
 
         # KL annealing
         wait_until_kl_inc = 10
-        if epoch < wait_until_kl_inc:
+        if itr < wait_until_kl_inc:
             kl_coef = 0.
         else:
-            kl_coef = (1-0.99** (epoch - wait_until_kl_inc))
+            kl_coef = (1-0.99** (itr - wait_until_kl_inc))
+
+        kl_coef = 0.993
 
         # Get the next batch
         batch_dict = utils.get_next_batch(trainloader)

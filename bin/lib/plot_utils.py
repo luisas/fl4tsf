@@ -122,6 +122,7 @@ def read_loss_file(file):
     clipping = meta_data['gradientclipping'].item()
     lrdecay = meta_data['lrdecay'].item()
     nlocalepochs = meta_data['localepochs'].item()
+    replicate = meta_data['replicate'].item()
     
     # Read the results.json file
     with open(file, 'r') as f:
@@ -163,6 +164,10 @@ def read_loss_file(file):
     # alpha
     df_federated_evaluate['alpha'] = meta_data['alpha'].item()
     df_centralized_evaluate['alpha'] = meta_data['alpha'].item()
+
+    # add replicate
+    df_federated_evaluate['replicate'] = replicate
+    df_centralized_evaluate['replicate'] = replicate
 
     # Aggregation column 
     # Check if file contins "FedAvg" in the path name
