@@ -2,6 +2,7 @@
 """
 Generate clinical ECG archetype dataset for federated learning research.
 Creates realistic, non-iid ECG data distributed across multiple client archetypes.
+Now supports different time lengths per client and level.
 """
 
 import os
@@ -11,6 +12,7 @@ import torch
 from collections import defaultdict
 from pathlib import Path
 import torch.nn.functional as F
+import numpy as np
 
 # Add the lib directory to Python path for imports
 import sys
@@ -52,6 +54,14 @@ def parse_arguments():
     
     parser.add_argument("--variable-duration", action="store_false", default=True,
                    help="Use fixed or variable recording durations (default: True, meaning variable durations are used)")
+    
+    # Time length variation parameters
+    parser.add_argument("--enable-time-variation", action="store_true", default=False,
+                       help="Enable different time lengths for different clients")
+    parser.add_argument("--time-percentages", type=str, default="100,75,50,25",
+                       help="Comma-separated time percentages for clients (e.g., '100,75,50,25')")
+    parser.add_argument("--levels", type=str, default="1,2,3,4,5,6",
+                       help="Comma-separated levels to create (e.g., '1,2,3,4,5,6')")
     
     # Technical parameters
     parser.add_argument("--seed", type=int, default=42,
@@ -123,8 +133,178 @@ def collect_client_data(generator, n_clients):
     return client_datasets
 
 
+def truncate_signal_and_timestamps(signal, timestamp, target_length_samples):
+    """Truncate signal and timestamps to target length."""
+    current_length = signal.shape[0]
+    
+    if target_length_samples >= current_length:
+        # No truncation needed
+        return signal, timestamp
+    
+    # Truncate from the end
+    truncated_signal = signal[:target_length_samples]
+    truncated_timestamp = timestamp[:target_length_samples]
+    
+    return truncated_signal, truncated_timestamp
+
+
+def save_client_dataset_with_time_variations(client_id, client_data, args, time_percentages, level):
+    """Save dataset for a single client with different time length variations."""
+    base_dataset_path = ROOT_DIR / Path(args.output_dir) / f"{args.dataset_prefix}_{args.dirichlet_alpha}"
+    
+    # For each time percentage, create a separate version
+    for time_idx, time_percentage in enumerate(time_percentages):
+        # Create directory for this level and time percentage
+        level_dataset_path = base_dataset_path / f"level_{level}" / f"time_{time_percentage}pct"
+        level_dataset_path.mkdir(parents=True, exist_ok=True)
+        
+        client_prefix = f"client_{client_id}"
+        
+        # Handle variable-length signals
+        signals = client_data['signals']
+        timestamps = client_data['timestamps']
+        
+        # Find the maximum length across all signals (for reference)
+        max_length = max(signal.shape[0] for signal in signals)
+        
+        # Calculate target length based on percentage
+        # Assume signals are sampled at a consistent rate, so percentage applies to length
+        target_length_samples = int(max_length * time_percentage / 100.0)
+        
+        print(f"Client {client_id}, Level {level}, Time {time_percentage}%: "
+              f"Target length: {target_length_samples} samples (from max {max_length})")
+        
+        # Apply time truncation based on client assignment
+        processed_signals = []
+        processed_timestamps = []
+        
+        for signal, timestamp in zip(signals, timestamps):
+            if client_id == 0:  # First client always gets full length
+                proc_signal, proc_timestamp = signal, timestamp
+            else:  # Other clients get truncated version
+                proc_signal, proc_timestamp = truncate_signal_and_timestamps(
+                    signal, timestamp, target_length_samples
+                )
+            
+            processed_signals.append(proc_signal)
+            processed_timestamps.append(proc_timestamp)
+        
+        # Find new max length after truncation for padding
+        new_max_length = max(signal.shape[0] for signal in processed_signals)
+        
+        # Pad all signals to the same length (after truncation)
+        padded_signals = []
+        padded_timestamps = []
+        
+        for signal, timestamp in zip(processed_signals, processed_timestamps):
+            signal_length = signal.shape[0]
+            
+            if signal_length < new_max_length:
+                # Pad signal with zeros
+                pad_length = new_max_length - signal_length
+                if len(signal.shape) == 2:  # [length, channels]
+                    padded_signal = F.pad(signal, (0, 0, 0, pad_length), mode='constant', value=0)
+                else:  # [length]
+                    padded_signal = F.pad(signal, (0, pad_length), mode='constant', value=0)
+                
+                # Pad timestamps - extend with the last timestamp + incremental steps
+                if len(timestamp.shape) == 1:
+                    last_time = timestamp[-1]
+                    time_step = timestamp[1] - timestamp[0] if len(timestamp) > 1 else 1.0
+                    additional_times = torch.arange(1, pad_length + 1) * time_step + last_time
+                    padded_timestamp = torch.cat([timestamp, additional_times])
+                else:
+                    # Handle multi-dimensional timestamps
+                    padded_timestamp = F.pad(timestamp, (0, 0, 0, pad_length), mode='constant', value=0)
+            else:
+                padded_signal = signal
+                padded_timestamp = timestamp
+                
+            padded_signals.append(padded_signal)
+            padded_timestamps.append(padded_timestamp)
+        
+        # Stack the padded tensors
+        try:
+            signals_tensor = torch.stack(padded_signals)
+            timestamps_tensor = torch.stack(padded_timestamps)
+        except RuntimeError as e:
+            print(f"Error stacking tensors after padding: {e}")
+            print(f"Padded signal shapes: {[s.shape for s in padded_signals]}")
+            print(f"Padded timestamp shapes: {[t.shape for t in padded_timestamps]}")
+            raise
+        
+        # Create metadata DataFrame BEFORE reordering
+        metadata_df = pd.DataFrame(client_data['metadata'])
+        
+        # Add time variation information to metadata
+        metadata_df['time_percentage'] = time_percentage
+        metadata_df['level'] = level
+        metadata_df['target_length_samples'] = target_length_samples
+        metadata_df['original_max_length'] = max_length
+        
+        # Create train/test split
+        n_patients = len(signals_tensor)
+        split_idx = int(n_patients * args.train_split)
+        indices = torch.randperm(n_patients)  # Shuffle for random split
+        
+        train_indices = indices[:split_idx]
+        test_indices = indices[split_idx:]
+        
+        # Reorder metadata to match tensor reordering
+        all_indices = torch.cat([train_indices, test_indices])
+        metadata_df_reordered = metadata_df.iloc[all_indices.tolist()].reset_index(drop=True)
+        
+        # Create split labels array and assign to reordered metadata
+        split_labels = ['train'] * len(train_indices) + ['test'] * len(test_indices)
+        metadata_df_reordered['split'] = split_labels
+        
+        # Prepare data in expected format for store_dataset
+        # Reorder tensors to match metadata order: [train_samples, test_samples]
+        reordered_signals = torch.cat([signals_tensor[train_indices], signals_tensor[test_indices]])
+        reordered_timestamps = torch.cat([timestamps_tensor[train_indices], timestamps_tensor[test_indices]])
+        
+        train_set = {
+            'data': reordered_signals[:len(train_indices)],
+            'time_steps': reordered_timestamps[:len(train_indices)],
+            'amplitude': [],  # Not used for ECG data
+            'frequency': []   # Not used for ECG data
+        }
+        
+        test_set = {
+            'data': reordered_signals[len(train_indices):],
+            'time_steps': reordered_timestamps[len(train_indices):], 
+            'amplitude': [],
+            'frequency': []
+        }
+
+        # Save using existing store_dataset function
+        dataset_prefix_with_variation = f"{args.dataset_prefix}_{args.dirichlet_alpha}_level_{level}_time_{time_percentage}pct"
+        store_dataset(
+            train_set, 
+            test_set, 
+            dataset_prefix=dataset_prefix_with_variation,
+            path_prefix=str(level_dataset_path.parent),
+            client_prefix=client_prefix
+        )
+        
+        # Add padding information to reordered metadata (use reordered indices)
+        original_lengths = [len(processed_signals[i]) for i in all_indices.tolist()]
+        metadata_df_reordered['original_length_after_truncation'] = original_lengths
+        metadata_df_reordered['padded_length'] = new_max_length
+        metadata_df_reordered['padding_applied'] = [length < new_max_length for length in original_lengths]
+        
+        # Save reordered metadata
+        metadata_path = level_dataset_path / f"{client_prefix}_metadata.csv"
+        metadata_df_reordered.to_csv(metadata_path, index=False)
+        
+        print(f"Saved {client_prefix} (Level {level}, Time {time_percentage}%): "
+              f"{len(train_indices)} train, {len(test_indices)} test samples")
+        print(f"Signal lengths - Target: {target_length_samples}, Final padded: {new_max_length}")
+
+
 def save_client_dataset(client_id, client_data, args):
     """Save dataset for a single client with support for variable-length signals."""
+    # Original function - save the full-length version
     dataset_path = ROOT_DIR / Path(args.output_dir) / f"{args.dataset_prefix}_{args.dirichlet_alpha}"
     dataset_path.mkdir(parents=True, exist_ok=True)
     
@@ -258,9 +438,22 @@ def save_client_dataset(client_id, client_data, args):
     print(f"Signal lengths - Original: {min(original_lengths)}-{max(original_lengths)}, Padded: {max_length}")
     print(f"Data alignment validated successfully!")
 
-def save_dataset_summary(client_datasets, args):
+
+def save_dataset_summary(client_datasets, args, level=None, time_percentages=None):
     """Save overall dataset summary statistics."""
-    dataset_path = ROOT_DIR / Path(args.output_dir) / f"{args.dataset_prefix}_{args.dirichlet_alpha}"
+    if level is not None and time_percentages is not None:
+        # Summary for time variation datasets
+        base_dataset_path = ROOT_DIR / Path(args.output_dir) / f"{args.dataset_prefix}_{args.dirichlet_alpha}"
+        for time_percentage in time_percentages:
+            level_dataset_path = base_dataset_path / f"level_{level}" / f"time_{time_percentage}pct"
+            summary_path = level_dataset_path / "dataset_summary.csv"
+        
+        # Create summary for the base level (we can create one summary per level)
+        dataset_path = base_dataset_path / f"level_{level}"
+    else:
+        # Original summary
+        dataset_path = ROOT_DIR / Path(args.output_dir) / f"{args.dataset_prefix}_{args.dirichlet_alpha}"
+        summary_path = dataset_path / "dataset_summary.csv"
     
     # Collect summary statistics
     summary_data = []
@@ -308,8 +501,20 @@ def save_dataset_summary(client_datasets, args):
             'qt_std': torch.tensor(qt_values).std().item()
         })
     
+    # Add level and time percentage info if applicable
+    if level is not None:
+        for item in summary_data:
+            item['level'] = level
+            if time_percentages is not None:
+                item['time_percentages'] = ','.join(map(str, time_percentages))
+    
     summary_df = pd.DataFrame(summary_data)
-    summary_path = dataset_path / "dataset_summary.csv"
+    
+    if level is not None:
+        summary_path = dataset_path / f"dataset_summary_level_{level}.csv"
+    else:
+        summary_path = dataset_path / "dataset_summary.csv"
+        
     summary_df.to_csv(summary_path, index=False)
     
     print(f"Saved dataset summary to {summary_path}")
@@ -324,6 +529,10 @@ def save_dataset_summary(client_datasets, args):
     print(f"Geography distribution: {geography_counts}")
     print(f"Mean HR range: {summary_df['mean_hr'].min():.1f}-{summary_df['mean_hr'].max():.1f} bpm")
     print(f"Mean QT range: {summary_df['mean_qt_ms'].min():.0f}-{summary_df['mean_qt_ms'].max():.0f} ms")
+    if level is not None:
+        print(f"Level: {level}")
+        if time_percentages is not None:
+            print(f"Time percentages: {time_percentages}")
 
 
 def main():
@@ -332,6 +541,11 @@ def main():
     
     print(f"Creating ECG dataset with {args.n_clients} clients, {args.n_patients} patients each")
     print(f"Duration: {args.duration}s, Variable duration: {args.variable_duration}, Alpha: {args.dirichlet_alpha}, Seed: {args.seed}")
+    
+    if args.enable_time_variation:
+        time_percentages = [int(x.strip()) for x in args.time_percentages.split(',')]
+        levels = [int(x.strip()) for x in args.levels.split(',')]
+        print(f"Time variation enabled: {time_percentages}% across levels {levels}")
     
     # Generate patient data
     data_generator = generate_clients(
@@ -348,12 +562,27 @@ def main():
     
     print(f"\nSaving datasets to {ROOT_DIR} / {args.output_dir}/{args.dataset_prefix}_{args.dirichlet_alpha}/...")
     
-    # Save each client's dataset
+    # Save original datasets (full length)
     for client_id, client_data in client_datasets.items():
         save_client_dataset(client_id, client_data, args)
     
-    # Save summary statistics
+    # Save summary statistics for original
     save_dataset_summary(client_datasets, args)
+    
+    # Save time variation datasets if enabled
+    if args.enable_time_variation:
+        time_percentages = [int(x.strip()) for x in args.time_percentages.split(',')]
+        levels = [int(x.strip()) for x in args.levels.split(',')]
+        
+        for level in levels:
+            print(f"\n=== Creating Level {level} with time variations ===")
+            for client_id, client_data in client_datasets.items():
+                save_client_dataset_with_time_variations(
+                    client_id, client_data, args, time_percentages, level
+                )
+            
+            # Save summary for this level
+            save_dataset_summary(client_datasets, args, level=level, time_percentages=time_percentages)
     
     print("\nDataset generation complete!")
 

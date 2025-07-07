@@ -1,0 +1,23 @@
+#! /usr/bin/bash
+#SBATCH --job-name=emb
+#SBATCH --partition=gpu
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aelhussein@nygenome.org
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=20G
+#SBATCH --gres=gpu:1
+#SBATCH --time=48:00:00
+#SBATCH --exclude=ne1dg6-004
+
+source ~/miniconda3/bin/activate ~/miniconda3/envs/fl_ts_env/
+conda activate fl_ts_env
+module load CUDA
+
+
+python ecg_embedding.py \
+    --root_dir /gpfs/commons/groups/gursoy_lab/aelhussein/fl4tsf \
+    --model_name "Edoardo-BS/hubert-ecg-large" \
+    --sampling_rate 100 \
+    --batch_size 16 \
+    --output_file "data_raw_emb_large.npy"

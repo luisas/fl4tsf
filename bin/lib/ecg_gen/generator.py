@@ -263,7 +263,6 @@ def generate_clients(
     client_arch_dists = sample_client_distributions(num_clients, cfg["archetype"], dirichlet_alpha)
 
     assignments = _create_assignments(num_clients, num_patients_per_client, client_arch_dists, archetype_names)
-
     # Decide on worker count
     total = len(assignments)
     cpu_cnt = 6
@@ -271,21 +270,6 @@ def generate_clients(
     n_workers = max(1, min(max_workers, total))
     batches = _chunk(assignments, n_workers)
     
-    # TEMPORARY: Run a single batch synchronously to profile _worker
-    # for idx, batch in enumerate(batches[:1]):  # Just one batch
-    #     result = _worker(
-    #         batch,
-    #         cfg=cfg,
-    #         duration_cfg=duration_cfg,
-    #         base_duration=duration_sec,
-    #         variable_duration=variable_duration,
-    #         base_seed=seed + idx * 1_000_000,
-    #         client_geos=client_geos,
-    #         client_arch_dists=client_arch_dists,
-    #     )
-    #     for patient in result:
-    #         yield patient
-
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         futures = [
@@ -303,6 +287,6 @@ def generate_clients(
             for idx, batch in enumerate(batches)
         ]
 
-        for fut in as_completed(futures):
-            for patient in fut.result():
-                yield patient
+    for fut in futures: 
+        for patient in fut.result():
+            yield patient

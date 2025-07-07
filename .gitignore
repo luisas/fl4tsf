@@ -8,4 +8,15 @@ work/
 results*
 federated_outputs/
 plots*
+save_code.sh
+all_py_sh_config_code.txt
+all_ipynb_code.txt
+*.sif
+submit_ecg_simulate*
 conf/tower.config
+*.log
+*.out
+*.json
+*.csv
+*.tsv
+*.txt

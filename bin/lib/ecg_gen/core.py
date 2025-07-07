@@ -153,13 +153,38 @@ def apply_condition_effects(params: Dict[str, float], effect_list: List[str], co
 # =============================================================================
 # Sampling Functions
 # =============================================================================
-
 def sample_client_distributions(n_clients: int, archetypes_config: Dict[str, Any], alpha: float) -> np.ndarray:
-    """Sample Dirichlet distributions for archetype mix per client with normalization."""
-    archetype_names = list(archetypes_config.keys())
-    matrix = dirichlet.rvs([alpha] * len(archetype_names), size=n_clients)
-    # Normalize to prevent zero probabilities
-    return (matrix + 1e-12) / (matrix + 1e-12).sum(axis=1, keepdims=True)
+    group_A_archetypes = ['elderly_frail', 'icu_critical', 'cardiac_outpatient']
+    group_B_archetypes = ['healthy_young', 'athlete']
+
+    all_archetypes = list(archetypes_config.keys())
+    archetype_to_idx = {name: i for i, name in enumerate(all_archetypes)}
+    
+    meta_groups = [group_A_archetypes, group_B_archetypes]
+    
+    # 1. Sample Dirichlet for meta-groups
+    meta_dist_matrix = dirichlet.rvs([alpha] * len(meta_groups), size=n_clients)
+    
+    # Initialize distribution matrix
+    final_client_archetype_dists = np.zeros((n_clients, len(all_archetypes)))
+    internal_alpha = 10  # For within-group mixing
+
+    # 2. Assign probabilities
+    for client_idx in range(n_clients):
+        for meta_group_idx, archetypes_in_group in enumerate(meta_groups):
+            group_prob = meta_dist_matrix[client_idx, meta_group_idx]
+            
+            # Sample within-group distribution
+            within_dist = dirichlet.rvs([internal_alpha] * len(archetypes_in_group), size=1)[0]
+            
+            # Assign in ORIGINAL group order
+            for archetype_name, prob in zip(archetypes_in_group, within_dist):
+                global_idx = archetype_to_idx[archetype_name]
+                final_client_archetype_dists[client_idx, global_idx] = group_prob * prob
+
+    # Final normalization
+    row_sums = final_client_archetype_dists.sum(axis=1)
+    return final_client_archetype_dists / row_sums[:, np.newaxis]
 
 def sample_patient_archetypes(client_dist: np.ndarray, n_patients: int, archetype_names: List[str]) -> List[str]:
     """Sample patient archetypes for a client based on its distribution."""

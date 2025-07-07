@@ -1,26 +1,40 @@
 # comorbidities.yaml
-# All prevalence values are probabilities in [0,1].
-# Multiple conditions can be sampled per patient; apply effects cumulatively.
-# 
-# effect_type determines how the condition is applied:
-# - parameter: Modify physiological parameters (HR, HRV, QT) via existing system
-# - morphology: Require post-processing for complex ECG shape changes
-# - timing: Use morphology_params to modify wave timing in ODE solver
+# Defines patient comorbidities, grouped by their primary physiological effect.
+#
+# EFFECT TYPES:
+# - parameter:
+#     Applies a global change to physiological parameters (e.g., baseline heart rate).
+#     Handled by the legacy parameter effect system.
+#
+# - rhythm:
+#     Changes the sequence and timing of cardiac events (the "beat plan").
+#     Handled by the Rhythm & Conduction Engine.
+#     Requires a 'params' block to configure the rhythm generator.
+#
+# - morphology_beat:
+#     Changes the shape of individual beat waveforms.
+#     Handled by the Beat-Shape Engine.
+#     Requires a 'recipe' block defining a sequence of atomic modifications.
+#
+# - stateful_morphology:
+#     A special morphology type for conditions that evolve over the recording duration.
+#     Requires a 'stateful_model' key to specify the evolution model to use.
+#
+# Prevalence values are probabilities in [0,1] for a patient of a given archetype.
+# ---
 
+# =================================================================================
+# TYPE: parameter (Global Physiological Effects)
+# =================================================================================
 diabetes:
   effect_type: parameter
-  description: "Type 2 or insulin-treated diabetes; autonomic neuropathy common."
+  description: "Type 2 diabetes; common cause of autonomic neuropathy."
   effects:
-    hr_offset: +5            # mild tachycardia
-    hrv_multiplier: 0.80     # reduced variability
-    qt_offset_ms: +10        # modest QT prolongation
-    noise_multiplier: 1.1
+    hr_offset: +5
+    hrv_multiplier: 0.80
+    qt_offset_ms: +10
   prevalence_by_archetype:
-    healthy_young: 0.02
-    athlete: 0.01
-    elderly_frail: 0.30
-    cardiac_outpatient: 0.45
-    icu_critical: 0.35
+    {healthy_young: 0.02, athlete: 0.01, elderly_frail: 0.30, cardiac_outpatient: 0.45, icu_critical: 0.35}
 
 copd:
   effect_type: parameter
@@ -28,44 +42,18 @@ copd:
   effects:
     hr_offset: +7
     hrv_multiplier: 0.85
-    qt_offset_ms: +0
-    noise_multiplier: 1.3    # respiratory motion artefacts
   prevalence_by_archetype:
-    healthy_young: 0.01
-    athlete: 0.00
-    elderly_frail: 0.25
-    cardiac_outpatient: 0.30
-    icu_critical: 0.40
+    {healthy_young: 0.01, athlete: 0.00, elderly_frail: 0.25, cardiac_outpatient: 0.30, icu_critical: 0.40}
 
 renal_disease:
   effect_type: parameter
-  description: "Stage 3+ chronic kidney disease or dialysis."
+  description: "Stage 3+ chronic kidney disease."
   effects:
     hr_offset: +4
     hrv_multiplier: 0.90
-    qt_offset_ms: +20        # strong association with prolonged QT
-    noise_multiplier: 1.2
+    qt_offset_ms: +20
   prevalence_by_archetype:
-    healthy_young: 0.01
-    athlete: 0.00
-    elderly_frail: 0.20
-    cardiac_outpatient: 0.25
-    icu_critical: 0.35
-
-sleep_apnea:
-  effect_type: parameter
-  description: "Obstructive sleep apnoea (untreated)."
-  effects:
-    hr_offset: +3
-    hrv_multiplier: 1.15     # cyclical brady-tachy boosts overall SDNN
-    qt_offset_ms: +0
-    noise_multiplier: 1.0
-  prevalence_by_archetype:
-    healthy_young: 0.05
-    athlete: 0.04
-    elderly_frail: 0.15
-    cardiac_outpatient: 0.20
-    icu_critical: 0.18
+    {healthy_young: 0.01, athlete: 0.00, elderly_frail: 0.20, cardiac_outpatient: 0.25, icu_critical: 0.35}
 
 heart_failure:
   effect_type: parameter
@@ -74,45 +62,94 @@ heart_failure:
     hr_offset: +12
     hrv_multiplier: 0.60
     qt_offset_ms: +25
-    noise_multiplier: 1.1
   prevalence_by_archetype:
-    healthy_young: 0.00
-    athlete: 0.00
-    elderly_frail: 0.20
-    cardiac_outpatient: 0.55
-    icu_critical: 0.70
+    {healthy_young: 0.00, athlete: 0.00, elderly_frail: 0.20, cardiac_outpatient: 0.55, icu_critical: 0.70}
 
-# New morphology-based conditions requiring post-processing
-old_myocardial_infarction:
-  effect_type: morphology
-  description: "Prior myocardial infarction with pathological Q-waves and poor R-wave progression."
-  prevalence_by_archetype:
-    healthy_young: 0.001
-    athlete: 0.002
-    elderly_frail: 0.15
-    cardiac_outpatient: 0.35
-    icu_critical: 0.40
-
+# =================================================================================
+# TYPE: rhythm (Timing and Conduction Abnormalities)
+# =================================================================================
 chronic_atrial_fibrillation:
-  effect_type: morphology
-  description: "Persistent atrial fibrillation with irregularly irregular rhythm."
+  effect_type: rhythm
+  description: "Persistent atrial fibrillation with an irregularly irregular rhythm."
+  params:
+    mean_ventricular_rate: 110  # Average ventricular response in bpm
+    irregularity_factor: 0.8   # Coefficient of variation for RR intervals
   prevalence_by_archetype:
-    healthy_young: 0.001
-    athlete: 0.01               # Paradoxically higher in endurance athletes
-    elderly_frail: 0.10
-    cardiac_outpatient: 0.20
-    icu_critical: 0.25
+    {healthy_young: 0.001, athlete: 0.01, elderly_frail: 0.10, cardiac_outpatient: 0.20, icu_critical: 0.25}
 
-# New timing-based condition using morphology_params
-long_qt_syndrome:
-  effect_type: timing
-  description: "Congenital or acquired QT prolongation syndrome."
-  morphology_params:
-    qt_prolongation_factor: 1.4  # 40% longer QT interval
-    freeze_morphology: true      # Preserve pathological timing regardless of HR
+pvc_burden_moderate:
+  effect_type: rhythm
+  description: "Moderate burden of premature ventricular contractions (10-15%)."
+  params:
+    burden_pct: 0.12
+    polymorphic: true  # Use multiple PVC templates for variability
+    coupling_interval_ms: 450
+    coupling_variability_ms: 25 # stdev for coupling interval
   prevalence_by_archetype:
-    healthy_young: 0.002
-    athlete: 0.001
-    elderly_frail: 0.008
-    cardiac_outpatient: 0.015
-    icu_critical: 0.020
+    {healthy_young: 0.01, athlete: 0.05, elderly_frail: 0.15, cardiac_outpatient: 0.25, icu_critical: 0.30}
+
+mobitz_I_wenckebach:
+  effect_type: rhythm
+  description: "Second-degree AV block, Mobitz Type I (Wenckebach)."
+  params:
+    pattern: [4, 3] # 4 P-waves for every 3 conducted QRS complexes
+  prevalence_by_archetype:
+    {healthy_young: 0.001, athlete: 0.01, elderly_frail: 0.05, cardiac_outpatient: 0.10, icu_critical: 0.08}
+
+# =================================================================================
+# TYPE: morphology_beat (Beat Shape Abnormalities)
+# =================================================================================
+old_anterior_mi:
+  effect_type: morphology_beat
+  description: "Old anterior MI with pathological Q-waves and poor R-wave progression."
+  recipe:
+    - name: carve_q_wave
+      scope: qrs
+      params: { depth_frac: 0.3, width_ms: 40, leads: ['V1', 'V2', 'V3', 'V4'] }
+    - name: reduce_r_amplitude
+      scope: qrs
+      params: { factor: 0.5, leads: ['V2', 'V3', 'V4'] }
+    - name: invert_t_wave
+      scope: t
+      params: { factor: -0.5, leads: ['V2', 'V3', 'V4'] }
+  prevalence_by_archetype:
+    {healthy_young: 0.001, athlete: 0.002, elderly_frail: 0.15, cardiac_outpatient: 0.35, icu_critical: 0.40}
+
+left_bundle_branch_block:
+  effect_type: morphology_beat
+  description: "Complete LBBB with wide QRS and characteristic ST/T changes."
+  recipe:
+    - name: widen_qrs
+      scope: qrs
+      params: { new_width_ms: 150 }
+    - name: add_lbbb_morphology # A special modifier for the classic V1/V6 patterns
+      scope: qrs
+      params: {}
+    - name: invert_t_wave
+      scope: t
+      params: { factor: -0.7, leads: ['I', 'aVL', 'V5', 'V6'] } # Discordant T-waves
+  prevalence_by_archetype:
+    {healthy_young: 0.001, athlete: 0.001, elderly_frail: 0.08, cardiac_outpatient: 0.15, icu_critical: 0.20}
+
+right_bundle_branch_block:
+  effect_type: morphology_beat
+  description: "Complete RBBB with wide QRS and rSR' pattern in V1."
+  recipe:
+    - name: widen_qrs
+      scope: qrs
+      params: { new_width_ms: 140 }
+    - name: add_rbbb_morphology # A special modifier for the classic V1/V6 patterns
+      scope: qrs
+      params: {} # e.g. creates rSR' in V1 and wide S in V6
+  prevalence_by_archetype:
+    {healthy_young: 0.005, athlete: 0.01, elderly_frail: 0.10, cardiac_outpatient: 0.12, icu_critical: 0.15}
+
+first_degree_av_block:
+  effect_type: morphology_beat
+  description: "First-degree AV block with constant PR prolongation > 200ms."
+  recipe:
+    - name: prolong_pr
+      scope: pr
+      params: { new_pr_ms: 260 }
+  prevalence_by_archetype:
+    {healthy_young: 0.01, athlete: 0.08, elderly_frail: 0.12, cardiac_outpatient: 0.18, icu_critical: 0.10}
