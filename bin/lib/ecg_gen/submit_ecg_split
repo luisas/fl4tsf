@@ -1,0 +1,32 @@
+#!/usr/bin/bash
+#SBATCH --job-name=ml
+#SBATCH --partition=cpu
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aelhussein@nygenome.org
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=100G
+#SBATCH --time=120:00:00
+#SBATCH --output=ecg_gen.log
+
+source ~/miniconda3/bin/activate
+conda activate fl_ts_env
+
+N_CLIENTS=2
+DURATION=120
+N_PATIENTS=500
+VARIABLE_DURATION_FLAG="--variable-duration"
+SEED=2
+DIRICHLET_ALPHAS=(100 10 5 1 0.5 0.1)
+
+# --- Loop through Dirichlet alpha values ---
+for alpha in "${DIRICHLET_ALPHAS[@]}"; do
+    echo "--- Generating data for dirichlet-alpha: $alpha ---"
+    python create_ecg_dataset.py \
+        --n-clients="$N_CLIENTS" \
+        --duration="$DURATION" \
+        --n-patients="$N_PATIENTS" \
+        --dirichlet-alpha="$alpha" \
+        $VARIABLE_DURATION_FLAG \
+        --seed="$SEED"
+done
