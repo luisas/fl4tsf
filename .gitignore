@@ -20,3 +20,4 @@ conf/tower.config
 *.csv
 *.tsv
 *.txt
+bin/lib/ecg_gen/synthetic/
