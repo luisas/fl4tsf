@@ -25,46 +25,63 @@ from lib.collate_functions import basic_collate_fn
 from flower.model_config import get_model_config
 from lib.physionet import variable_time_collate_fn
 
+# Add to bin/flower/task.py - Update the Net() function to handle new solver parameters
+
 def Net():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model_config = get_model_config(file_path="model.config")
-
-    obsrv_std = float(model_config["obsrv_std"])
-    poisson = model_config["poisson"] == "True"
-    rec_layers = int(model_config["rec_layers"])
-    gen_layers = int(model_config["gen_layers"])
-    units = int(model_config["units"])
-    gru_units = int(model_config["gru_units"])
-    latents = int(model_config["latents"])
-    rec_dims = int(model_config["rec_dims"])
-    z0_encoder = model_config["z0_encoder"]
-    train_classif_w_reconstr = model_config["train_classif_w_reconstr"] == "True"
-    classif = model_config["classif"] == "True"
-    linear_classif = model_config["linear_classif"] == "True"
-    classif_per_tp = model_config["classif_per_tp"] == "True"
-    n_labels = int(model_config["n_labels"])
-    input_dim = int(model_config["input_dim"])
+    # Get model configuration from model.config
+    model_config = get_model_config("model.config")
     
+    # Existing parameters
+    latents = int(model_config["latents"])
+    poisson = model_config["poisson"]
+    units = int(model_config["units"])
+    gen_layers = int(model_config["gen_layers"])
+    rec_dims = int(model_config["rec_dims"])
+    rec_layers = int(model_config["rec_layers"])
+    gru_units = int(model_config["gru_units"])
+    z0_encoder = model_config["z0_encoder"]
+    classif = model_config["classif"]
+    linear_classif = model_config["linear_classif"]
+    train_classif_w_reconstr = model_config["train_classif_w_reconstr"]
+    input_dim = int(model_config["input_dim"])
+    classif_per_tp = model_config["classif_per_tp"]
+    n_labels = int(model_config["n_labels"])
+    obsrv_std = float(model_config["obsrv_std"])
+    
+    # NEW: Solver parameters with defaults
+    solver_method = model_config.get("solver_method", "tsit5")
+    encoder_solver_method = model_config.get("encoder_solver_method", "euler")
+    use_jit = model_config.get("use_jit", "true")
+    ode_rtol = float(model_config.get("ode_rtol", "1e-5"))
+    ode_atol = float(model_config.get("ode_atol", "1e-7"))
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     obsrv_std = torch.Tensor([obsrv_std]).to(device)
     z0_prior = Normal(torch.Tensor([0.0]).to(device), torch.Tensor([1.]).to(device))
-    model = create_LatentODE_model(latents,
-                                    poisson,
-                                    units,
-                                    gen_layers,
-                                    rec_dims,
-                                    rec_layers,
-                                    gru_units,
-                                    z0_encoder,
-                                    classif,
-                                    linear_classif,
-                                    train_classif_w_reconstr,
-                                    input_dim,
-                                    z0_prior,
-                                    obsrv_std,
-                                    device, 
-                                    classif_per_tp = classif_per_tp,
-                                    n_labels = n_labels)
+    
+    model = create_LatentODE_model(
+        latents=latents,
+        poisson=poisson,
+        units=units,
+        gen_layers=gen_layers,
+        rec_dims=rec_dims,
+        rec_layers=rec_layers,
+        gru_units=gru_units,
+        z0_encoder=z0_encoder,
+        classif=classif,
+        linear_classif=linear_classif,
+        train_classif_w_reconstr=train_classif_w_reconstr,
+        input_dim=input_dim,
+        z0_prior=z0_prior,
+        obsrv_std=obsrv_std,
+        device=device,
+        classif_per_tp=classif_per_tp,
+        n_labels=n_labels,
+        # NEW: Pass solver parameters
+        solver_method=solver_method,
+        encoder_solver_method=encoder_solver_method, 
+        use_jit=use_jit
+    )
     return model
 
 
@@ -110,9 +127,9 @@ def train(net, trainloader, valloader, epochs, lr, device, loss_per_epoch=True )
         if itr < wait_until_kl_inc:
             kl_coef = 0.
         else:
-            kl_coef = (1-0.99** (itr - wait_until_kl_inc))
+            #kl_coef = (1-0.99** (itr - wait_until_kl_inc))
+            kl_coef = 0.
 
-        kl_coef = 0.993
 
         # Get the next batch
         batch_dict = utils.get_next_batch(trainloader)

@@ -17,6 +17,8 @@ workflow {
     def lrdecay         = "${params.lrdecay}".split(",")
     def localepochs     = "${params.localepochs}".split(",")
     def decay_onset     = "${params.decay_onset}".split(",")
+    def use_jit         = "${params.use_jit}".split(",")
+
 
     // Replicate is a special case, we want to run it multiple times and given by number, create list of numbers with max params.replicate
     def replicate       = (1..Integer.parseInt("${params.replicate}")).collect { it.toString() }

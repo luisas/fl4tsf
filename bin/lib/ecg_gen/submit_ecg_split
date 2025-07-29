@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+#SBATCH --job-name=ml
+#SBATCH --partition=cpu
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=aelhussein@nygenome.org
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=100G
+#SBATCH --time=120:00:00
+#SBATCH --output=ecg_gen.log
+
+source ~/miniconda3/bin/activate
+conda activate fl_ts_env
+
+python ecg_physionet_split.py

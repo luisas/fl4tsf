@@ -131,7 +131,7 @@ def read_loss_file(file):
     # Plot centralized evaluate
     df_centralized_evaluate = pd.DataFrame(data['centralized_evaluate'])
     df_federated_evaluate = pd.DataFrame(data['federated_evaluate'])
-    df_aggregation = pd.DataFrame(data['aggregation'])
+    #df_aggregation = pd.DataFrame(data['aggregation'])
     # Add the learning rate to the DataFrame
     df_federated_evaluate['lr'] = lr
     df_centralized_evaluate['lr'] = lr
@@ -194,7 +194,7 @@ def read_loss_file(file):
     # modify federated_loss into loss
     df_federated_evaluate.rename(columns={'federated_evaluate_loss': 'loss'}, inplace=True)
 
-    return df_centralized_evaluate, df_federated_evaluate, df_aggregation
+    return df_centralized_evaluate, df_federated_evaluate#, df_aggregation
 
 
 def prepare_df_for_plotting(result_json, prefix = "noise", convergence_range=1.1):

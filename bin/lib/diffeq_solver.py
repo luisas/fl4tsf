@@ -1,66 +1,133 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
-
-import time
-import numpy as np
-
 import torch
 import torch.nn as nn
 
-import lib.utils as utils
-from torch.distributions.multivariate_normal import MultivariateNormal
+# Corrected imports for torchode based on the provided library structure
+from torchode import AutoDiffAdjoint, InitialValueProblem, ODETerm
+from torchode.single_step_methods import Dopri5, Euler, Heun, Tsit5
+from torchode.step_size_controllers import IntegralController
 
-# git clone https://github.com/rtqichen/torchdiffeq.git
-from torchdiffeq import odeint as odeint
-
-#####################################################################################################
 
 class DiffeqSolver(nn.Module):
-	def __init__(self, input_dim, ode_func, method, latents, 
-			odeint_rtol = 1e-4, odeint_atol = 1e-5, device = torch.device("cpu")):
-		super(DiffeqSolver, self).__init__()
+    def __init__(self, input_dim, ode_func, method, latents, 
+                 odeint_rtol=1e-5, odeint_atol=1e-7, device=torch.device("cpu")):
+        super(DiffeqSolver, self).__init__()
 
-		self.ode_method = method
-		self.latents = latents
-		self.device = device
-		self.ode_func = ode_func
+        self.ode_method = method
+        self.latents = latents
+        self.device = device
+        self.ode_func = ode_func
+        self.odeint_rtol = odeint_rtol
+        self.odeint_atol = odeint_atol
+        
+        # Instantiate solver components. The term is omitted here so it can be
+        # provided dynamically in the forward pass, which is more flexible.
+        self.step_method = self._create_solver(method)
+        self.step_size_controller = IntegralController(atol=self.odeint_atol, rtol=self.odeint_rtol)
+        self.solver = AutoDiffAdjoint(self.step_method, self.step_size_controller)
 
-		self.odeint_rtol = odeint_rtol
-		self.odeint_atol = odeint_atol
+    def _create_solver(self, method):
+        """Map method strings to TorchODE single-step method objects"""
+        # Mappings based on available solvers in the provided torchode library
+        solver_map = {
+            # Explicit methods
+            'euler': Euler(term=None),
+            'heun': Heun(term=None),
+            'dopri5': Dopri5(term=None),
+            'tsit5': Tsit5(term=None),
+            
+            # Backward compatibility mappings to available solvers
+            'midpoint': Heun(term=None),
+            'ralston': Heun(term=None),
+            
+            # Mappings for stiff solvers to the most robust available explicit method
+            'implicit_euler': Tsit5(term=None),
+            'implicit_midpoint': Tsit5(term=None),
+            'bdf2': Tsit5(term=None),
+            'bdf3': Tsit5(term=None),
+            'bdf4': Tsit5(term=None),
+            'bdf5': Tsit5(term=None),
+            'esdirk23': Tsit5(term=None),
+            'esdirk34': Tsit5(term=None),
+            'esdirk45': Tsit5(term=None),
+            'scipy_solver': Tsit5(term=None),
+        }
+        
+        if method in solver_map:
+            return solver_map[method]
+        else:
+            # Default to Tsit5 for unknown methods as it's a robust choice
+            print(f"Warning: Unknown method '{method}', defaulting to Tsit5")
+            return Tsit5(term=None)
 
-	def forward(self, first_point, time_steps_to_predict, backwards = False):
-		"""
-		# Decode the trajectory through ODE Solver
-		"""
-		n_traj_samples, n_traj = first_point.size()[0], first_point.size()[1]
-		n_dims = first_point.size()[-1]
-		
-		pred_y = odeint(self.ode_func, first_point, time_steps_to_predict, 
-			rtol=self.odeint_rtol, atol=self.odeint_atol, method = self.ode_method)
-		
-		pred_y = pred_y.permute(1,2,0,3)
+    def forward(self, first_point, time_steps_to_predict, backwards=False):
+        """Decode trajectory through TorchODE solver"""
+        n_traj_samples, n_traj = first_point.size()[0], first_point.size()[1]
+        n_dims = first_point.size()[-1]
+        
+        # Reshape for batch processing: combine traj_samples and traj dimensions
+        batch_size = n_traj_samples * n_traj
+        y0 = first_point.view(batch_size, n_dims)
 
-		assert(torch.mean(pred_y[:, :, 0, :]  - first_point) < 0.001)
-		assert(pred_y.size()[0] == n_traj_samples)
-		assert(pred_y.size()[1] == n_traj)
+        # Ensure time_steps_to_predict is 2D for the IVP
+        if time_steps_to_predict.dim() == 1:
+            time_steps_to_predict = time_steps_to_predict.unsqueeze(0).expand(batch_size, -1)
+        
+        # Create a wrapper function for the ODE that handles reshaping
+        def batched_ode_func(t, y):
+            # Reshape from [batch, features] to [n_traj_samples, n_traj, n_dims] for the model
+            y_reshaped = y.view(n_traj_samples, n_traj, n_dims)
+            
+            # Call original ode function
+            if backwards:
+                dy_dt = -self.ode_func(t, y_reshaped)
+            else:
+                dy_dt = self.ode_func(t, y_reshaped)
+            
+            # Reshape back to [batch, features] for the solver
+            return dy_dt.view(batch_size, n_dims)
+        
+        # Create ODE Term and Initial Value Problem
+        term = ODETerm(batched_ode_func)
+        ivp = InitialValueProblem(y0=y0, t_eval=time_steps_to_predict)
+        
+        # Solve using the adjoint method
+        solution = self.solver.solve(ivp, term=term)
+        
+        # Reshape solution back to the expected 4D format
+        # solution.ys shape: [batch_size, n_timepoints, n_dims]
+        pred_y = solution.ys.view(n_traj_samples, n_traj, len(time_steps_to_predict[0]), n_dims)
+        
+        # Validation checks
+        assert(torch.mean(pred_y[:, :, 0, :] - first_point) < 0.001)
+        assert(pred_y.size()[0] == n_traj_samples)
+        assert(pred_y.size()[1] == n_traj)
 
-		return pred_y
+        return pred_y
 
-	def sample_traj_from_prior(self, starting_point_enc, time_steps_to_predict, 
-		n_traj_samples = 1):
-		"""
-		# Decode the trajectory through ODE Solver using samples from the prior
+    def sample_traj_from_prior(self, starting_point_enc, time_steps_to_predict, n_traj_samples=1):
+        """Sample trajectory using prior with TorchODE"""
+        
+        # Get the sampling function from ode_func
+        func = self.ode_func.sample_next_point_from_prior
+        
+        # Create a wrapper for the batched sampling function
+        def batched_sample_func(t, y):
+            return func(t, y)
 
-		time_steps_to_predict: time steps at which we want to sample the new trajectory
-		"""
-		func = self.ode_func.sample_next_point_from_prior
-
-		pred_y = odeint(func, starting_point_enc, time_steps_to_predict, 
-			rtol=self.odeint_rtol, atol=self.odeint_atol, method = self.ode_method)
-		# shape: [n_traj_samples, n_traj, n_tp, n_dim]
-		pred_y = pred_y.permute(1,2,0,3)
-		return pred_y
-
-
+        batch_size = starting_point_enc.shape[0]
+        # Ensure time_steps_to_predict is 2D for the IVP
+        if time_steps_to_predict.dim() == 1:
+            time_steps_to_predict = time_steps_to_predict.unsqueeze(0).expand(batch_size, -1)
+        
+        # Create ODE Term and IVP for sampling
+        term = ODETerm(batched_sample_func)
+        ivp = InitialValueProblem(
+            y0=starting_point_enc,
+            t_eval=time_steps_to_predict
+        )
+        
+        # Solve
+        solution = self.solver.solve(ivp, term=term)
+        
+        # Return in [batch, time, features] format
+        return solution.ys
