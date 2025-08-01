@@ -118,7 +118,7 @@ def server_fn(context: Context, nrounds: int = 4):
         ], dim=0)
         test_timestamps =  test_timestamps[0]
         testloader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-            collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+            collate_fn= lambda batch: basic_collate_fn(batch, test_timestamps, dataset_name, sample_tp, cut_tp, extrap, server_device, data_type = "test"))
 
 
     strategy = CustomFedAvg(

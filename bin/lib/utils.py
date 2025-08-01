@@ -101,11 +101,23 @@ def split_last_dim(data):
 	return res
 
 
-def init_network_weights(net, std = 0.1):
-	for m in net.modules():
-		if isinstance(m, nn.Linear):
-			nn.init.normal_(m.weight, mean=0, std=std)
-			nn.init.constant_(m.bias, val=0)
+def init_network_weights(net, nonlinearity='none'):
+    for m in net.modules():
+        if isinstance(m, nn.Linear):
+            if nonlinearity == 'relu':
+                # Kaiming (He) initialization for ReLU activations
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+            elif nonlinearity in ['sigmoid', 'tanh']:
+                # Xavier (Glorot) initialization for Tanh/Sigmoid activations
+                nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain(nonlinearity))
+            else:
+                # Fallback to a small normal initialization if nonlinearity is unknown
+                nn.init.normal_(m.weight, mean=0, std=0.01) # A slightly smaller std might be better than 0.1 for general case
+            
+            # Initialize biases to zero
+            if m.bias is not None:
+                nn.init.constant_(m.bias, val=0)
+
 
 
 def flatten(x, dim):
@@ -272,13 +284,13 @@ def linspace_vector(start, end, n_points):
 	assert(start.size() == end.size())
 	if size == 1:
 		# start and end are 1d-tensors
-		res = torch.linspace(start, end, n_points)
+		res = torch.linspace(start, end, n_points, device=start.device)
 	else:
 		# start and end are vectors
-		res = torch.Tensor()
+		res = torch.Tensor().to(start.device)
 		for i in range(0, start.size(0)):
 			res = torch.cat((res, 
-				torch.linspace(start[i], end[i], n_points)),0)
+				torch.linspace(start[i], end[i], n_points, device=start.device)),0)
 		res = torch.t(res.reshape(start.size(0), n_points))
 	return res
 

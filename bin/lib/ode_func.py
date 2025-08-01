@@ -114,5 +114,3 @@ class ODEFunc_w_Poisson(ODEFunc):
 		return torch.cat((dydt_dldt, torch.exp(log_lam)),-1)
 
 
-
-

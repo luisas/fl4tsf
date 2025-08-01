@@ -90,7 +90,6 @@ class GRU_unit(nn.Module):
 				print("new_y is nan!")
 				print(mask)
 				print(y_mean)
-				print(prev_new_y)
 				exit()
 
 		new_y_std = new_y_std.abs()
@@ -241,7 +240,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
 			t0 = time_steps[0]
 
 		device = get_device(data)
-
 		prev_y = torch.zeros((1, n_traj, self.latent_dim)).to(device)
 		prev_std = torch.zeros((1, n_traj, self.latent_dim)).to(device)
 
@@ -312,13 +310,12 @@ class Encoder_z0_ODE_RNN(nn.Module):
 
 
 class Decoder(nn.Module):
-	def __init__(self, latent_dim, input_dim):
+	def __init__(self, latent_dim, input_dim, n_units=100):
 		super(Decoder, self).__init__()
 		# decode data from latent space where we are solving an ODE back to the data space
-
 		decoder = nn.Sequential(
-		   nn.Linear(latent_dim, input_dim),)
-		
+		   nn.Linear(latent_dim, input_dim), 
+		)
 		utils.init_network_weights(decoder)	
 		self.decoder = decoder
 

@@ -23,17 +23,6 @@ from torch.distributions import kl_divergence, Independent
 # Likelihood Functions
 #####################################################################################################
 
-def gaussian_log_likelihood(mu_2d, data_2d, obsrv_std, indices = None):
-	n_data_points = mu_2d.size()[-1]
-
-	if n_data_points > 0:
-		gaussian = Independent(Normal(loc = mu_2d, scale = obsrv_std.repeat(n_data_points)), 1)
-		log_prob = gaussian.log_prob(data_2d) 
-		log_prob = log_prob / n_data_points 
-	else:
-		log_prob = torch.zeros([1]).to(get_device(data_2d)).squeeze()
-	return log_prob
-
 
 def poisson_log_likelihood(masked_log_lambdas, masked_data, indices, int_lambdas):
 	# masked_log_lambdas and masked_data 
@@ -47,37 +36,78 @@ def poisson_log_likelihood(masked_log_lambdas, masked_data, indices, int_lambdas
 	return log_prob
 
 
-def masked_gaussian_log_density(mu, data, obsrv_std, mask = None):
-	# these cases are for plotting through plot_estim_density
-	if (len(mu.size()) == 3):
-		# add additional dimension for gp samples
-		mu = mu.unsqueeze(0)
+def gaussian_log_likelihood(mu_2d, data_2d, obsrv_std, indices=None):
+    """
+    Computes the sum of log-likelihoods for a batch of sequences.
+    """
+    n_data_points = mu_2d.size(-1)
+    
+    if n_data_points > 0:
+        # The Independent wrapper sums the log-probs of the individual Normals.
+        gaussian = Independent(Normal(loc=mu_2d, scale=obsrv_std.repeat(n_data_points)), 1)
+        log_prob = gaussian.log_prob(data_2d) / (n_data_points)  # Normalize by number of data points
+    else:
+        # Return a zero tensor with the correct batch dimension
+        log_prob = torch.zeros(mu_2d.shape[0]).to(get_device(data_2d))
 
-	if (len(data.size()) == 2):
-		# add additional dimension for gp samples and time step
-		data = data.unsqueeze(0).unsqueeze(2)
-	elif (len(data.size()) == 3):
-		# add additional dimension for gp samples
-		data = data.unsqueeze(0)
+    return log_prob
 
-	n_traj_samples, n_traj, n_timepoints, n_dims = mu.size()
+def compute_masked_likelihood(mu, data, mask, likelihood_func):
+    """
+    Computes the likelihood for masked data by summing over the dimensions.
+    """
+    n_traj_samples, n_traj, n_timepoints, n_dims = mu.size()
 
-	assert(data.size()[-1] == n_dims)
+    res = []
+    for i in range(n_traj_samples):
+        for k in range(n_traj):
+            dim_log_probs = []
+            for j in range(n_dims):
+                data_masked = torch.masked_select(data[i,k,:,j], mask[i,k,:,j].bool())
+                if data_masked.size(0) == 0:
+                    continue  # Skip dimensions with no observations
+                
+                mu_masked = torch.masked_select(mu[i,k,:,j], mask[i,k,:,j].bool())
+                
+                log_prob_dim = likelihood_func(mu_masked, data_masked, indices=(i,k,j))
+                dim_log_probs.append(log_prob_dim)
+            
+            if dim_log_probs:
+                res.append(torch.stack(dim_log_probs).sum())
+            else:
+                res.append(torch.tensor(0.0).to(get_device(data)))
 
-	# Shape after permutation: [n_traj, n_traj_samples, n_timepoints, n_dims]
-	if mask is None:
-		mu_flat = mu.reshape(n_traj_samples*n_traj, n_timepoints * n_dims)
-		n_traj_samples, n_traj, n_timepoints, n_dims = data.size()
-		data_flat = data.reshape(n_traj_samples*n_traj, n_timepoints * n_dims)
-	
-		res = gaussian_log_likelihood(mu_flat, data_flat, obsrv_std)
-		res = res.reshape(n_traj_samples, n_traj).transpose(0,1)
-	else:
-		# Compute the likelihood per patient so that we don't priorize patients with more measurements
-		func = lambda mu, data, indices: gaussian_log_likelihood(mu, data, obsrv_std = obsrv_std, indices = indices)
-		res = compute_masked_likelihood(mu, data, mask, func)
-	return res
+    res = torch.stack(res, 0).to(get_device(data))
+    res = res.reshape((n_traj_samples, n_traj))
+    res = res.transpose(0,1)
+    return res
 
+def masked_gaussian_log_density(mu, data, obsrv_std, mask=None):
+    """
+    Computes the Gaussian log-density for time series, handling masks and multiple samples.
+    """
+    # Expand data tensor to match samples dimension of mu if needed
+    if data.dim() == 3 and mu.dim() == 4:
+        if data.size(0) != mu.size(1): # B, T, D vs S, B, T, D
+             raise ValueError("Batch dimensions of data and mu do not match.")
+        data = data.repeat(mu.size(0), 1, 1, 1)
+
+    if mask is None:
+        # Flatten all dimensions except the last one for efficient computation
+        n_traj_samples, n_traj, n_timepoints, n_dims = mu.size()
+        mu_flat = mu.reshape(n_traj_samples * n_traj, n_timepoints * n_dims)
+        data_flat = data.reshape(n_traj_samples * n_traj, n_timepoints * n_dims)
+        
+        res = gaussian_log_likelihood(mu_flat, data_flat, obsrv_std)
+        res = res.reshape(n_traj_samples, n_traj).transpose(0, 1)
+    else:
+        # Use masked computation for datasets with missing values
+        func = lambda mu_inner, data_inner, indices: gaussian_log_likelihood(
+            mu_inner, data_inner, obsrv_std=obsrv_std, indices=indices
+        )
+        res = compute_masked_likelihood(mu, data, mask, func)
+    
+    return res
 
 #####################################################################################################
 # Classification Loss Functions
@@ -226,34 +256,54 @@ def get_derivative_loss(truth, pred_y, time_steps, mask=None, weight=1.0):
 	# Compute L2 loss on derivatives
 	deriv_diff = (truth_deriv - pred_deriv) ** 2
 	deriv_loss = torch.mean(deriv_diff) * weight
-	return deriv_loss / 500
+	return deriv_loss 
 
 
 def get_frequency_loss(truth, pred_y, mask=None):
-	"""Encourage frequency content similarity (penalize constant predictions)"""
-	# truth shape: [n_traj, n_tp, n_dim]
-	# pred_y shape: [n_traj_samples, n_traj, n_tp, n_dim]
-	
-	truth_expanded = truth.repeat(pred_y.size(0), 1, 1, 1)
-	
-	if mask is not None:
-		mask_expanded = mask.repeat(pred_y.size(0), 1, 1, 1)
-		truth_expanded = truth_expanded * mask_expanded
-		pred_y = pred_y * mask_expanded
-	
-	# Compute FFT for each trajectory and dimension
-	def compute_power_spectrum(signal):
-		# signal: [batch, n_tp, n_dim]
-		fft = torch.fft.fft(signal, dim=1)
-		power = torch.abs(fft) ** 2
-		return power[:, :signal.size(1)//2, :]  # Keep only positive frequencies
-	
-	truth_power = compute_power_spectrum(truth_expanded)
-	pred_power = compute_power_spectrum(pred_y)
-	
-	# L2 loss between power spectra
-	freq_loss = torch.mean((truth_power - pred_power) ** 2)
-	return freq_loss
+    """
+    Encourages frequency content similarity using a log-scale power spectrum loss.
+    
+    NOTE: This loss is not recommended for variable-length sequences that require masking.
+    Masking in the time domain introduces spectral leakage artifacts in the FFT.
+    It's best to use this loss on batches where all sequences have the same length.
+    """
+    # truth shape: [n_traj, n_tp, n_dim]
+    # pred_y shape: [n_traj_samples, n_traj, n_tp, n_dim]
+
+    if mask is not None:
+        # Warning: Masking before FFT is mathematically problematic.
+        # It's better to prepare data in fixed-length batches for this loss.
+        print("Warning: Using a mask with get_frequency_loss can introduce FFT artifacts.")
+    
+    # Reshape for easier processing by collapsing sample and trajectory dimensions
+    # New pred_y shape: [batch, n_tp, n_dim] where batch = n_traj_samples * n_traj
+    batch_size, n_tp, n_dim = pred_y.shape[1], pred_y.shape[2], pred_y.shape[3]
+    pred_y_reshaped = pred_y.reshape(-1, n_tp, n_dim)
+    
+    # Helper function to compute the log power spectrum
+    def compute_log_power_spectrum(signal):
+        # signal: [batch, n_tp, n_dim]
+        fft = torch.fft.rfft(signal, dim=1, norm='ortho') # Use rfft for real inputs, 'ortho' norm
+        power = torch.abs(fft) ** 2
+        
+        # Add a small epsilon for numerical stability before taking the log
+        #log_power = torch.log(power + 1e-8)
+        return power
+        
+    # Compute log power spectra
+    pred_log_power = compute_log_power_spectrum(pred_y_reshaped)
+    
+    # Unsqueeze truth to enable broadcasting, avoiding a memory-intensive .repeat() call
+    # truth shape: [1, n_traj, n_tp, n_dim] -> reshaped to [n_traj, n_tp, n_dim]
+    truth_reshaped = truth.reshape(batch_size, n_tp, n_dim)
+    truth_log_power = compute_log_power_spectrum(truth_reshaped)
+
+    # L2 loss between log power spectra. Broadcasting handles the sample dimension.
+    # truth_log_power is broadcast from [n_traj, n_freq, n_dim] to match pred_y's shape.
+    freq_loss = torch.mean((pred_log_power - truth_log_power.unsqueeze(0)) ** 2)
+
+    return freq_loss
+
 
 
 #####################################################################################################
@@ -284,33 +334,3 @@ def compute_poisson_proc_likelihood(truth, pred_y, info, mask = None):
 	# poisson_log_l shape: [n_traj_samples, n_traj]
 	return poisson_log_l
 
-
-#####################################################################################################
-# Helper Functions
-#####################################################################################################
-
-def compute_masked_likelihood(mu, data, mask, likelihood_func):
-	# Compute the likelihood per patient and per attribute so that we don't priorize patients with more measurements
-	n_traj_samples, n_traj, n_timepoints, n_dims = mu.size()
-
-	res = []
-	for i in range(n_traj_samples):
-		for k in range(n_traj):
-			for j in range(n_dims):
-
-				data_masked = torch.masked_select(data[i,k,:,j], mask[i,k,:,j].bool())
-
-				# Skip dimensions with no observations
-				if (torch.sum(mask[i,k,:,j]) == 0):
-					continue
-				mu_masked = torch.masked_select(mu[i,k,:,j], mask[i,k,:,j].bool())
-				log_prob = likelihood_func(mu_masked, data_masked, indices = (i,k,j))
-				res.append(log_prob)
-	# shape: [n_traj*n_traj_samples, 1]
-
-	res = torch.stack(res, 0).to(get_device(data))
-	res = res.reshape((n_traj_samples, n_traj, n_dims))
-	# Take mean over the number of dimensions
-	res = torch.mean(res, -1) # !!!!!!!!!!! changed from sum to mean
-	res = res.transpose(0,1)
-	return res

@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from flower.task import Net, load_data, train, test
+from flower.task import Net, train
 from lib.collate_functions import basic_collate_fn
 from lib.physionet import variable_time_collate_fn, get_data_min_max
 
@@ -72,9 +72,9 @@ else:
     time_steps_extrap = time_steps_extrap[0]
     # train dataset 
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True,
-        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "train"))
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, device, data_type = "train"))
     test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False,
-        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, data_type = "test"))
+        collate_fn= lambda batch: basic_collate_fn(batch, time_steps_extrap, dataset_name, sample_tp, cut_tp, extrap, device, data_type = "test"))
 
 # train
 loss_training = train(model, train_loader, test_loader, epochs, lr=lr, device=device, loss_per_epoch=True)
@@ -104,5 +104,3 @@ if not os.path.exists(args.output_dir):
 df.index.name = "epoch"
 # add output directory
 df.to_csv(os.path.join(args.output_dir, "loss_per_epoch.csv"), index=True)
-
-

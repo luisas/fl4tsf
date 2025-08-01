@@ -9,7 +9,7 @@ from torchode.step_size_controllers import IntegralController
 
 class DiffeqSolver(nn.Module):
     def __init__(self, input_dim, ode_func, method, latents, 
-                 odeint_rtol=1e-5, odeint_atol=1e-7, device=torch.device("cpu")):
+                 odeint_rtol=1e-3, odeint_atol=1e-4, device=torch.device("cpu")):
         super(DiffeqSolver, self).__init__()
 
         self.ode_method = method
@@ -38,18 +38,7 @@ class DiffeqSolver(nn.Module):
             # Backward compatibility mappings to available solvers
             'midpoint': Heun(term=None),
             'ralston': Heun(term=None),
-            
-            # Mappings for stiff solvers to the most robust available explicit method
-            'implicit_euler': Tsit5(term=None),
-            'implicit_midpoint': Tsit5(term=None),
-            'bdf2': Tsit5(term=None),
-            'bdf3': Tsit5(term=None),
-            'bdf4': Tsit5(term=None),
-            'bdf5': Tsit5(term=None),
-            'esdirk23': Tsit5(term=None),
-            'esdirk34': Tsit5(term=None),
-            'esdirk45': Tsit5(term=None),
-            'scipy_solver': Tsit5(term=None),
+        
         }
         
         if method in solver_map:

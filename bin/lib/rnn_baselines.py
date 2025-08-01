@@ -11,7 +11,7 @@ from torch.nn.functional import relu
 import lib.utils as utils
 from lib.utils import get_device
 from lib.encoder_decoder import *
-from lib.likelihood_eval import *
+from lib.losses import *
 
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.normal import Normal
@@ -90,7 +90,7 @@ def get_cum_delta_ts(data, delta_ts, mask):
 		k = missing_index[2][idx]
 
 		if j != 0 and j != (n_tp-1):
-		 	cum_delta_ts[i,j+1,k] = cum_delta_ts[i,j+1,k] + cum_delta_ts[i,j,k]
+			cum_delta_ts[i,j+1,k] = cum_delta_ts[i,j+1,k] + cum_delta_ts[i,j,k]
 	cum_delta_ts = cum_delta_ts / cum_delta_ts.max() # normalize
 
 	return cum_delta_ts
@@ -109,9 +109,9 @@ def impute_using_input_decay(data, delta_ts, mask, w_input_decay, b_input_decay)
 		i = missing_index[0][idx] 
 		j = missing_index[1][idx]
 		k = missing_index[2][idx]
-
-		if j != 0 and j != (n_tp-1):
-		 	cum_delta_ts[i,j+1,k] = cum_delta_ts[i,j+1,k] + cum_delta_ts[i,j,k]
+		
+		if j != 0 and j != (n_tp - 1):
+			cum_delta_ts[i, j + 1, k] = cum_delta_ts[i, j + 1, k] + cum_delta_ts[i, j, k]
 		if j != 0:
 			data_last_obsv[i,j,k] = data_last_obsv[i,j-1,k] # last observation
 	cum_delta_ts = cum_delta_ts / cum_delta_ts.max() # normalize
@@ -222,7 +222,7 @@ class Classic_RNN(Baseline):
 			train_classif_w_reconstr = train_classif_w_reconstr)
 
 		self.concat_mask = concat_mask
-		
+
 		encoder_dim = int(input_dim)
 		if concat_mask:
 			encoder_dim = encoder_dim * 2
@@ -438,6 +438,3 @@ class RNN_VAE(VAE_Baseline):
 
 		# outputs shape: [n_traj_samples, n_traj, n_tp, n_dims]
 		return outputs, extra_info
-
-
-

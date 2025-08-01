@@ -32,6 +32,10 @@ def get_next_val(init, t, tmin, tmax, final = None):
 def generate_periodic(time_steps, init_freq, init_amplitude, starting_point, 
 	final_freq = None, final_amplitude = None, phi_offset = 0.):
 
+	# Move tensor to CPU before converting to numpy
+	if torch.is_tensor(time_steps):
+		time_steps = time_steps.cpu()
+
 	tmin = time_steps.min()
 	tmax = time_steps.max()
 

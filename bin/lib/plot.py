@@ -27,7 +27,7 @@ import torch.nn.functional as functional
 from torch.distributions.normal import Normal
 from lib.latent_ode import LatentODE
 
-from lib.likelihood_eval import masked_gaussian_log_density
+from lib.losses import masked_gaussian_log_density
 try:
 	import umap
 except:

@@ -146,8 +146,7 @@ class Baseline(nn.Module):
 			pois_log_likelihood = torch.mean(pois_log_likelihood, 1)
 
 		# Correct loss for deterministic model (mean of log-likelihood)
-		loss = -torch.mean(likelihood) + 10.0 * deriv_loss
-		#loss = mse +freq_loss #+ deriv_loss
+		loss = -torch.mean(likelihood)
 
 		if self.use_poisson_proc:
 			loss = loss - 0.1 * pois_log_likelihood 
@@ -194,7 +193,6 @@ class VAE_Baseline(nn.Module):
 		self.n_labels = n_labels
 
 		self.obsrv_std = torch.Tensor([obsrv_std]).to(device)
-
 		self.z0_prior = z0_prior
 		self.use_binary_classif = use_binary_classif
 		self.classif_per_tp = classif_per_tp
@@ -218,20 +216,22 @@ class VAE_Baseline(nn.Module):
 	def get_gaussian_likelihood(self, truth, pred_y, mask = None):
 		# pred_y shape [n_traj_samples, n_traj, n_tp, n_dim]
 		# truth shape  [n_traj, n_tp, n_dim]
-		n_traj, n_tp, n_dim = truth.size()
 
-		# Compute likelihood of the data under the predictions
+		# Repeat truth to match the number of samples from the VAE encoder
 		truth_repeated = truth.repeat(pred_y.size(0), 1, 1, 1)
 
 		if mask is not None:
 			mask = mask.repeat(pred_y.size(0), 1, 1, 1)
+		
+		# Call the loss function to get log-likelihoods
 		log_density_data = losses.masked_gaussian_log_density(pred_y, truth_repeated, 
 			obsrv_std = self.obsrv_std, mask = mask)
+		
+		# The shape from losses is [n_traj, n_traj_samples]. Permute to [n_traj_samples, n_traj]
 		log_density_data = log_density_data.permute(1,0)
-		log_density = torch.mean(log_density_data, 1)
 
-		# shape: [n_traj_samples]
-		return log_density
+		# Return the final tensor without averaging over the batch dimension
+		return log_density_data
 
 
 	def get_mse(self, truth, pred_y, mask = None):
@@ -280,7 +280,7 @@ class VAE_Baseline(nn.Module):
 		# Compute likelihood of all the points
 		rec_likelihood = self.get_gaussian_likelihood(
 			batch_dict["data_to_predict"], pred_y,
-			mask = batch_dict["mask_predicted_data"])
+			mask = batch_dict["mask_predicted_data"]) 
 
 		mse = self.get_mse(
 			batch_dict["data_to_predict"], pred_y,
@@ -321,12 +321,7 @@ class VAE_Baseline(nn.Module):
 					mask = batch_dict["mask_predicted_data"])
 
 		# IWAE loss
-		# IWAE loss + derivative loss
-		loss = - torch.logsumexp(rec_likelihood -  kl_coef * kldiv_z0,0) + 10.0 * deriv_loss
-		#loss = mse + kl_coef * kldiv_z0 +  freq_loss #deriv_loss
-		
-		if torch.isnan(loss):
-			loss = - torch.mean(rec_likelihood - kl_coef * kldiv_z0,0)
+		loss = - torch.logsumexp(rec_likelihood -  kl_coef * kldiv_z0,0)
 			
 		if self.use_poisson_proc:
 			loss = loss - 0.1 * pois_log_likelihood 
@@ -346,7 +341,7 @@ class VAE_Baseline(nn.Module):
 		results["ce_loss"] = torch.mean(ce_loss).detach()
 		results["kl_first_p"] =  torch.mean(kldiv_z0).detach()
 		results["std_first_p"] = torch.mean(fp_std).detach()
-		results["nodesolve"] = info["nodesolve"]
+		results["nodesolve"] = info.get("nodesolve", 0)
 
 		if batch_dict["labels"] is not None and self.use_binary_classif:
 			results["label_predictions"] = info["label_predictions"].detach()
